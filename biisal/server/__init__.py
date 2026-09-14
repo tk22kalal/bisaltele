@@ -1,4 +1,4 @@
-# © agrprojects
+# Â© agrprojects
 
 import re
 
@@ -15,6 +15,42 @@ _PROTECTED_MEDIA_PREFIXES = (
     "/thumb/",
 )
 _DIRECT_MEDIA_PATH = re.compile(r"^/(?:[A-Za-z0-9_-]{6})?\d+(?:/|$)")
+
+_CORS_PREFIXES = ("/api/",)
+
+
+def _apply_cors(headers, origin):
+    headers["Access-Control-Allow-Origin"] = origin or "*"
+    headers["Access-Control-Allow-Methods"] = "GET, OPTIONS"
+    headers["Access-Control-Allow-Headers"] = "*"
+    headers["Access-Control-Max-Age"] = "86400"
+    headers["Vary"] = "Origin"
+
+
+@web.middleware
+async def cors_headers(request: web.Request, handler):
+    """Allow the PWA (a different origin) to fetch the /api/* JSON endpoints.
+
+    The media stream/download links load inside an iframe (same-origin to the
+    embed) so they never needed CORS; the Telegram delivery call is a real
+    cross-origin fetch() and must receive Access-Control-Allow-Origin."""
+    needs_cors = request.path.startswith(_CORS_PREFIXES)
+    origin = request.headers.get("Origin", "*")
+
+    if needs_cors and request.method == "OPTIONS":
+        resp = web.Response(status=204)
+        _apply_cors(resp.headers, origin)
+        return resp
+
+    try:
+        resp = await handler(request)
+    except web.HTTPException as exc:
+        if needs_cors:
+            _apply_cors(exc.headers, origin)
+        raise
+    if needs_cors:
+        _apply_cors(resp.headers, origin)
+    return resp
 
 
 @web.middleware
@@ -42,7 +78,7 @@ async def require_media_access_code(request: web.Request, handler):
 async def web_server():
     web_app = web.Application(
         client_max_size=30000000,
-        middlewares=[require_media_access_code],
+        middlewares=[cors_headers, require_media_access_code],
     )
     web_app.add_routes(routes)
     return web_app
