@@ -1,0 +1,16 @@
+.env
+.env.*
+*.env
+credentials.json
+*.pem
+*.key
+.credentials
+
+*.session
+*.session-journal
+venv/
+.venv/
+__pycache__/
+*.pyc
+.env
+*.session

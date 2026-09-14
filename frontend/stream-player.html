@@ -1,0 +1,1856 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#2c5282">
+    <title>Watch Lecture - NEXTPULSE</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Theme must load before render to prevent flash -->
+    <script src="./theme.js"></script>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+    
+<script src="./block.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="./supabase-config.js"></script>
+  <script src="./last-watched.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        :root {
+            --primary-blue: #2C8252;
+            --dark-blue: #1a365d;
+            --dark-gray: #2d3748;
+            --medium-gray: #4a5568;
+            --light-gray: #718096;
+            --bg-light: #f0f4f8;
+            --border-light: #e2e8f0;
+            --card-white: #fff;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            color: var(--dark-gray);
+            line-height: 1.6;
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        header {
+            background: #2c5282;
+            color: white;
+            padding: 1rem 2rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo h1 {
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+
+        .logo i {
+            font-size: 1.8rem;
+            color: #4fd1c7;
+        }
+
+        .back-btn {
+            background: rgba(255, 255, 255, 0.1);
+            color: white;
+            border: 1px solid rgba(255, 255, 255, 0.3);
+            padding: 0.6rem 1.2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            text-decoration: none;
+        }
+
+        .back-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            transform: translateY(-2px);
+        }
+
+        /* reCAPTCHA Verification Screen */
+        #verification-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: calc(100vh - 80px);
+            padding: 2rem;
+        }
+
+        .verification-card {
+            background: var(--card-white);
+            border-radius: 16px;
+            padding: 3rem 2rem;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 500px;
+            width: 100%;
+        }
+
+        .verification-card h2 {
+            color: var(--dark-blue);
+            margin-bottom: 1rem;
+            font-size: 1.8rem;
+        }
+
+        .verification-card p {
+            color: var(--medium-gray);
+            margin-bottom: 2rem;
+        }
+
+        .recaptcha-container {
+            display: flex;
+            justify-content: center;
+            margin-bottom: 1.5rem;
+        }
+
+        .verify-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+
+        .verify-btn:hover:not(:disabled) {
+            background: var(--dark-blue);
+            transform: translateY(-2px);
+        }
+
+        .verify-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        /* Player Screen */
+        #player-screen {
+            display: none;
+            padding: 2rem;
+        }
+
+        .player-container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        .player-layout {
+            display: grid;
+            grid-template-columns: minmax(0, 7fr) minmax(0, 3fr);
+            gap: 2rem;
+            align-items: start;
+        }
+
+        /* Main Video Section */
+        .main-video-section {
+            background: var(--card-white);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .video-iframe-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 63.5%;
+            background: #000;
+            border-radius: 12px;
+            margin-bottom: 1.5rem;
+            overflow: hidden;
+            max-width: 100%;
+        }
+
+        .video-iframe-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .video-title {
+            font-size: 1.5rem;
+            color: var(--dark-blue);
+            margin-bottom: 1rem;
+            font-weight: 700;
+            word-break: break-word;
+        }
+
+        #watch-s2-btn {
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        .download-btn {
+            background: var(--primary-blue);
+            color: white;
+            border: none;
+            padding: 0.8rem 2rem;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 1rem;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            transition: all 0.3s;
+        }
+
+        .download-btn:hover {
+            background: var(--dark-blue);
+            transform: translateY(-2px);
+        }
+
+        /* Next Lectures Sidebar */
+        .youtube-sidebar {
+            background: var(--card-white);
+            border-radius: 16px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08);
+        }
+
+        .youtube-sidebar h3 {
+            color: var(--dark-blue);
+            margin-bottom: 1.5rem;
+            font-size: 1.3rem;
+            font-weight: 700;
+        }
+
+        .next-lecture-card {
+            background: var(--bg-light);
+            border-radius: 12px;
+            overflow: hidden;
+            cursor: pointer;
+            margin-bottom: 1rem;
+            transition: transform 0.3s, box-shadow 0.3s;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--border-light);
+        }
+
+        .next-lecture-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 16px rgba(44, 82, 130, 0.15);
+        }
+
+        .next-lecture-card:last-child {
+            margin-bottom: 0;
+        }
+
+        .next-lecture-thumbnail {
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16 / 9;
+            object-fit: cover;
+            background-color: #2c5282;
+            display: block;
+        }
+
+        .next-lecture-info {
+            padding: 12px;
+        }
+
+        .next-lecture-title {
+            font-size: 13px;
+            font-weight: 600;
+            color: var(--dark-gray);
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            line-height: 1.4;
+        }
+
+        .no-more-lectures {
+            text-align: center;
+            color: var(--light-gray);
+            padding: 2rem 1rem;
+            font-size: 14px;
+        }
+
+        /* ── Onestream Ad container – responsive fix ── */
+        #div-gpt-ad-1785457696804-0 {
+            max-width: 100% !important;
+            overflow: hidden !important;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            margin: 0 auto 1rem auto;
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 991px) {
+            .player-layout {
+                grid-template-columns: 1fr;
+                gap: 1.5rem;
+            }
+
+            .youtube-sidebar h3 {
+                font-size: 1.2rem;
+            }
+
+            header {
+                padding: 1rem;
+            }
+
+            .logo h1 {
+                font-size: 1.2rem;
+            }
+
+            #player-screen {
+                padding: 1rem;
+            }
+        }
+
+        @media (max-width: 600px) {
+            .main-video-section {
+                padding: 1rem;
+            }
+
+            .video-iframe-container {
+                padding-bottom: 75%;
+            }
+
+            #watch-s2-btn {
+                width: 100%;
+                margin-bottom: 0.5rem;
+            }
+
+            .download-buttons {
+                display: flex;
+                justify-content: center;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            }
+
+            .download-buttons .download-btn {
+                flex: 1 1 45%;
+                padding: 0.8rem;
+            }
+
+            #div-gpt-ad-1785457696804-0 {
+                min-width: auto !important;
+                width: 100% !important;
+                min-height: auto !important;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .verification-card {
+                padding: 2rem 1rem;
+            }
+
+            .verification-card h2 {
+                font-size: 1.5rem;
+            }
+
+            .video-title {
+                font-size: 1.2rem;
+            }
+
+            .main-video-section {
+                padding: 0.75rem;
+            }
+
+            #player-screen {
+                padding: 0.5rem;
+            }
+
+            .youtube-sidebar {
+                padding: 1rem;
+            }
+        }
+
+        .error-message {
+            color: #e53e3e;
+            margin-top: 1rem;
+            font-weight: 600;
+        }
+
+        .loading {
+            text-align: center;
+            color: var(--medium-gray);
+            padding: 2rem;
+        }
+
+        /* ── Dark Mode ── */
+        html:not([data-theme="light"]) body {
+            background-color: #0d1117;
+            color: #e6edf3;
+        }
+
+        html:not([data-theme="light"]) .verification-card {
+            background: #161b22;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+        }
+
+        html:not([data-theme="light"]) .verification-card h2 {
+            color: #e6edf3;
+        }
+
+        html:not([data-theme="light"]) .verification-card p {
+            color: #8b949e;
+        }
+
+        html:not([data-theme="light"]) .main-video-section {
+            background: #161b22;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        html:not([data-theme="light"]) .video-title {
+            color: #e6edf3;
+        }
+
+        html:not([data-theme="light"]) .youtube-sidebar {
+            background: #161b22;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+        }
+
+        html:not([data-theme="light"]) .youtube-sidebar h3 {
+            color: #e6edf3;
+        }
+
+        html:not([data-theme="light"]) .next-lecture-card {
+            background: #1c2128;
+            border-color: #30363d;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3);
+        }
+
+        html:not([data-theme="light"]) .next-lecture-card:hover {
+            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        html:not([data-theme="light"]) .next-lecture-info {
+            background: #1c2128;
+        }
+
+        html:not([data-theme="light"]) .next-lecture-title {
+            color: #c9d1d9;
+        }
+
+        html:not([data-theme="light"]) .no-more-lectures {
+            color: #4d5566;
+        }
+
+        html:not([data-theme="light"]) .loading {
+            color: #8b949e;
+        }
+
+        html:not([data-theme="light"]) .error-message {
+            color: #f87171;
+        }
+
+        /* Download limit popup */
+        #dl-limit-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+        #dl-limit-overlay.active {
+            display: flex;
+        }
+        #dl-limit-box {
+            background: #1e293b;
+            border: 2px solid #ef4444;
+            border-radius: 16px;
+            padding: 2rem 2.5rem;
+            max-width: 380px;
+            width: 90%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: dlPopIn .25s ease;
+        }
+        html[data-theme="light"] #dl-limit-box {
+            background: #fff;
+            border-color: #ef4444;
+        }
+        @keyframes dlPopIn {
+            from {
+                transform: scale(.85);
+                opacity: 0;
+            }
+            to {
+                transform: scale(1);
+                opacity: 1;
+            }
+        }
+        #dl-limit-box .dl-icon {
+            font-size: 3rem;
+            margin-bottom: .75rem;
+        }
+        #dl-limit-box h3 {
+            color: #ef4444;
+            font-size: 1.25rem;
+            margin-bottom: .5rem;
+        }
+        #dl-limit-box p {
+            color: #94a3b8;
+            font-size: .95rem;
+            line-height: 1.5;
+            margin-bottom: 1.25rem;
+        }
+        html[data-theme="light"] #dl-limit-box p {
+            color: #475569;
+        }
+        #dl-limit-box .dl-count-badge {
+            display: inline-block;
+            background: #ef4444;
+            color: #fff;
+            font-weight: 700;
+            font-size: 1.5rem;
+            border-radius: 50px;
+            padding: .2rem 1rem;
+            margin-bottom: 1rem;
+        }
+        #dl-limit-close-btn {
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: .65rem 2rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s;
+        }
+        #dl-limit-close-btn:hover {
+            background: #dc2626;
+        }
+
+        /* ── Telegram delivery button + modal ── */
+        #get-telegram-btn {
+            background: #229ED9;
+            width: 100%;
+            margin-top: 0.5rem;
+        }
+        #get-telegram-btn:hover {
+            background: #1b87ba;
+        }
+        #tg-overlay {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.65);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+            padding: 1rem;
+        }
+        #tg-overlay.active { display: flex; }
+        #tg-box {
+            background: #161b22;
+            border: 2px solid #229ED9;
+            border-radius: 16px;
+            padding: 1.75rem 1.5rem;
+            max-width: 420px;
+            width: 100%;
+            text-align: center;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+            animation: dlPopIn .25s ease;
+        }
+        html[data-theme="light"] #tg-box { background: #fff; }
+        #tg-box .tg-icon { font-size: 2.75rem; color: #229ED9; margin-bottom: .5rem; }
+        #tg-box h3 { color: #229ED9; font-size: 1.2rem; margin-bottom: .5rem; }
+        #tg-box p { color: #94a3b8; font-size: .92rem; line-height: 1.5; margin-bottom: 1rem; }
+        html[data-theme="light"] #tg-box p { color: #475569; }
+        #tg-token-input {
+            width: 100%;
+            padding: .7rem .9rem;
+            border-radius: 8px;
+            border: 1px solid #30363d;
+            background: #0d1117;
+            color: #e6edf3;
+            font-size: .95rem;
+            margin-bottom: 1rem;
+            outline: none;
+        }
+        html[data-theme="light"] #tg-token-input { background: #f8fafc; color: #0f172a; border-color: #cbd5e1; }
+        #tg-token-input:focus { border-color: #229ED9; }
+        .tg-action-btn {
+            background: #229ED9;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: .65rem 1.6rem;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background .2s;
+            width: 100%;
+        }
+        .tg-action-btn:disabled { opacity: .6; cursor: not-allowed; }
+        .tg-action-btn:hover:not(:disabled) { background: #1b87ba; }
+        #tg-close-x {
+            position: absolute;
+            top: 12px; right: 16px;
+            background: none; border: none;
+            color: #8b949e; font-size: 1.4rem; cursor: pointer;
+        }
+        #tg-msg { font-size: .9rem; margin-top: .75rem; min-height: 1.2rem; }
+        #tg-msg.ok { color: #3fb950; }
+        #tg-msg.err { color: #f87171; }
+
+        /* ── Player tabs (Get File In Telegram | Stream Online) ── */
+        .player-tabs {
+            display: flex;
+            gap: .5rem;
+            margin-bottom: 1rem;
+            background: rgba(255,255,255,0.04);
+            padding: .35rem;
+            border-radius: 12px;
+        }
+        html[data-theme="light"] .player-tabs { background: #eef2f7; }
+        .player-tab {
+            flex: 1;
+            display: flex; align-items: center; justify-content: center; gap: .5rem;
+            padding: .7rem .8rem;
+            border: none;
+            border-radius: 9px;
+            background: transparent;
+            color: #94a3b8;
+            font-size: .98rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background .2s, color .2s;
+        }
+        .player-tab i { font-size: 1.05rem; }
+        .player-tab:hover { color: #e6edf3; }
+        html[data-theme="light"] .player-tab:hover { color: #0f172a; }
+        .player-tab.active { background: #229ED9; color: #fff; box-shadow: 0 4px 14px rgba(34,158,217,.35); }
+        #tab-stream.active { background: #3498db; box-shadow: 0 4px 14px rgba(52,152,219,.35); }
+
+        .player-panel { animation: dlPopIn .2s ease; }
+
+        /* ── Telegram inline panel ── */
+        .tg-panel-inner {
+            background: rgba(34,158,217,0.06);
+            border: 1px solid rgba(34,158,217,0.35);
+            border-radius: 14px;
+            padding: 1.6rem 1.3rem;
+            text-align: center;
+        }
+        .tg-panel-inner .tg-icon { font-size: 2.6rem; color: #229ED9; margin-bottom: .4rem; }
+        .tg-panel-inner h3 { color: #229ED9; font-size: 1.2rem; margin-bottom: .5rem; }
+        .tg-panel-inner p { color: #94a3b8; font-size: .93rem; line-height: 1.55; margin-bottom: 1rem; }
+        html[data-theme="light"] .tg-panel-inner p { color: #475569; }
+        #tg-token-row { max-width: 460px; margin: 0 auto 1rem; }
+        .tg-howto-link {
+            background: none; border: none; color: #229ED9;
+            font-size: .88rem; cursor: pointer; margin-top: .1rem; text-decoration: underline;
+        }
+        .tg-panel-inner .tg-action-btn { max-width: 460px; margin: 0 auto; display: block; }
+
+        /* ── How-to modal ── */
+        #tg-howto-overlay {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.7); z-index: 10000;
+            align-items: center; justify-content: center; padding: 1rem;
+        }
+        #tg-howto-overlay.active { display: flex; }
+        #tg-howto-box {
+            position: relative; background: #161b22; border: 2px solid #229ED9;
+            border-radius: 16px; padding: 1.6rem 1.4rem; max-width: 640px; width: 100%;
+            max-height: 88vh; overflow-y: auto; text-align: left;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.55);
+        }
+        html[data-theme="light"] #tg-howto-box { background: #fff; }
+        #tg-howto-box h3 { color: #229ED9; font-size: 1.2rem; margin-bottom: 1rem; text-align: center; }
+        #tg-howto-close {
+            position: absolute; top: 10px; right: 16px;
+            background: none; border: none; color: #8b949e; font-size: 1.6rem; cursor: pointer;
+        }
+        .tg-steps { list-style: none; padding: 0; margin: 0 0 1rem; }
+        .tg-steps li { margin-bottom: 1.2rem; }
+        .tg-steps p { color: #c9d1d9; font-size: .95rem; line-height: 1.5; margin-bottom: .5rem; }
+        html[data-theme="light"] .tg-steps p { color: #334155; }
+        .tg-steps code { background: rgba(34,158,217,.15); color: #229ED9; padding: .1rem .35rem; border-radius: 5px; }
+        .tg-steps img { width: 100%; border-radius: 10px; border: 1px solid #30363d; display: block; }
+
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo">
+            <i class="fas fa-heartbeat"></i>
+            <h1>NEXTPULSE</h1>
+        </div>
+        <a href="javascript:history.back()" class="back-btn">
+            <i class="fas fa-arrow-left"></i>
+            Back
+        </a>
+    </header>
+
+    <!-- reCAPTCHA Verification Screen -->
+    <div id="verification-screen">
+        <div class="verification-card">
+            <h2>Verify You're Human</h2>
+            <p id="verify-desc">Please complete the verification below to watch the lecture</p>
+
+            <div class="recaptcha-container">
+                <div class="g-recaptcha"
+                     data-sitekey="6LdCK_crAAAAAD702QCUelFDiZPr5wqL-3qbgk2u"
+                     data-callback="onRecaptchaSuccess"
+                     data-expired-callback="onRecaptchaExpired"></div>
+            </div>
+
+            <button class="verify-btn" id="verify-btn" onclick="verifyAndProceed()" disabled>
+                Verify & Continue
+            </button>
+
+            <div id="error-message" class="error-message"></div>
+        </div>
+    </div>
+
+    <!-- Player Screen (shown after verification) -->
+    <div id="player-screen">
+        <div class="player-container">
+            <div class="player-layout">
+                <!-- Main Video Section -->
+                <div class="main-video-section">
+                    <div class="player-tabs">
+                        <button class="player-tab" id="tab-telegram" onclick="switchPlayerTab('telegram')" data-testid="tab-get-telegram">
+                            <i class="fab fa-telegram-plane"></i>
+                            Get File In Telegram
+                        </button>
+                        <button class="player-tab active" id="tab-stream" onclick="switchPlayerTab('stream')" data-testid="tab-stream-online">
+                            <i class="fas fa-play-circle"></i>
+                            Stream Online
+                        </button>
+                    </div>
+
+                    <!-- Panel: Get File In Telegram -->
+                    <div id="telegram-panel" class="player-panel" style="display:none;" data-testid="telegram-panel">
+                        <div class="tg-panel-inner">
+                            <div class="tg-icon"><i class="fab fa-telegram-plane"></i></div>
+                            <h3 id="tg-title">Get file in Telegram</h3>
+                            <p id="tg-desc">Loading…</p>
+                            <div id="tg-token-row" style="display:none;">
+                                <input id="tg-token-input" type="text" placeholder="Paste your Telegram bot token" autocomplete="off" spellcheck="false" data-testid="telegram-token-input">
+                                <button type="button" class="tg-howto-link" onclick="openHowToModal()" data-testid="how-to-get-token-btn">
+                                    <i class="fas fa-circle-question"></i> How to get bot token?
+                                </button>
+                            </div>
+                            <button class="tg-action-btn" id="tg-action-btn" onclick="tgPrimaryAction()" disabled data-testid="telegram-action-btn">Please wait…</button>
+                            <div id="tg-msg" data-testid="telegram-msg"></div>
+                        </div>
+                    </div>
+
+                    <!-- Panel: Stream Online (unchanged) -->
+                    <div id="stream-online-panel" class="player-panel" data-testid="stream-online-panel">
+                    <div class="video-iframe-container" id="main-iframe-container">
+                        <div class="loading">Loading video...</div>
+                    </div>
+
+                    <h2 class="video-title" id="video-title">Loading...</h2>
+                    <!-- /23205238319/Onestream -->
+<div id='div-gpt-ad-1785457696804-0' style='min-width: 300px; min-height: 250px;'>
+  <script>
+    googletag.cmd.push(function() { googletag.display('div-gpt-ad-1785457696804-0'); });
+  </script>
+</div>
+
+                    <button class="download-btn" id="watch-s2-btn" onclick="handleWatchS2()" style="background: #3498db;">
+                        <i class="fas fa-play-circle"></i>
+                        WATCH - S2
+                    </button>
+
+                    <div class="download-buttons">
+                        <button class="download-btn" id="download-s1-btn" onclick="handleDownload()" style="background: #2ecc71;">
+                            <i class="fas fa-download"></i>
+                            DOWNLOAD - S1
+                        </button>
+
+                        <button class="download-btn" id="download-s2-btn" onclick="handleDownloadS2()" style="background: #2ecc71;">
+                            <i class="fas fa-download"></i>
+                            DOWNLOAD - S2
+                        </button>
+                    </div>
+                    </div>
+
+
+                </div>
+
+                <!-- Next Lectures Sidebar -->
+                <div class="youtube-sidebar">
+                    <h3>Next Lectures</h3>
+                    <div id="nextLecturesContainer">
+                        <div class="loading" style="padding: 2rem; text-align: center;">Loading next lectures...</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Get URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const contentType = urlParams.get('type') || 'video'; // 'video' or 'pdf'
+        const streamUrl = urlParams.get('stream') || urlParams.get('url');
+        const downloadUrl = urlParams.get('download');
+        const streamUrlX = urlParams.get('streamx');
+        const downloadUrlX = urlParams.get('downloadx');
+        const videoTitle = urlParams.get('title') || (contentType === 'pdf' ? 'PDF Document' : 'Lecture Video');
+
+        // ── Random server rotation helpers ────────────────────────────────────
+        (function initServerRotation() {
+            function s2Stream() { return streamUrlX || (streamUrl ? streamUrl.replace('web.afrahtafreeh.site', 'webx.afrahtafreeh.site') : null); }
+
+            function s2Download() { return downloadUrlX || (downloadUrl ? downloadUrl.replace('web.afrahtafreeh.site', 'webx.afrahtafreeh.site') : null); }
+
+            window._randomStreamUrl = function() { const s2 = s2Stream(); return (s2 && Math.random() < 0.5) ? s2 : streamUrl; };
+            window._randomDownloadUrl = function() { const s2 = s2Download(); return (s2 && Math.random() < 0.5) ? s2 : downloadUrl; };
+
+            // Randomly swap visible labels on page load
+            if (Math.random() < 0.5) {
+                const s1d = document.getElementById('download-s1-btn');
+                const s2d = document.getElementById('download-s2-btn');
+                if (s1d) s1d.innerHTML = '<i class="fas fa-download"></i> DOWNLOAD - S2';
+                if (s2d) s2d.innerHTML = '<i class="fas fa-download"></i> DOWNLOAD - S1';
+                const wBtn = document.getElementById('watch-s2-btn');
+                if (wBtn) wBtn.innerHTML = '<i class="fas fa-play-circle"></i> WATCH - S1';
+            }
+        })();
+
+        // NEW: Get lecture index if provided (helps avoid title matching issues)
+        const lectureIndexParam = urlParams.get('lectureIndex');
+        const lectureIndex = lectureIndexParam !== null ? parseInt(lectureIndexParam, 10) : null;
+
+        // Priority 1: Use explicit jsonPath if provided (most reliable)
+        let jsonFilePath = urlParams.get('jsonPath') || '';
+        let subjectName = urlParams.get('subject') || '';
+        let platformPath = urlParams.get('platformPath') || urlParams.get('platform') || '';
+
+        // Priority 2: Auto-detect from referrer if jsonPath not provided
+        if (!jsonFilePath && (!platformPath || !subjectName) && document.referrer) {
+            try {
+                const referrerUrl = new URL(document.referrer);
+                const referrerPath = referrerUrl.pathname;
+
+                // Extract full path: 1234xxx/platform/subfolder/.../subject.html
+                const match = referrerPath.match(/1234xxx\/(.+)\.html$/);
+                if (match) {
+                    const fullPath = match[1]; // e.g., 'dams/damsb2benglish/anatomy' or 'test3/clinicalguruji'
+                    const pathParts = fullPath.split('/');
+
+                    if (!subjectName) {
+                        // Last part is the subject (filename without .html)
+                        subjectName = pathParts[pathParts.length - 1];
+                    }
+
+                    if (!platformPath) {
+                        // Everything before the last part is the platform path
+                        // e.g., 'dams/damsb2benglish' or just 'test3'
+                        platformPath = pathParts.slice(0, -1).join('/');
+                    }
+
+                    // Construct jsonPath from extracted parts (assuming HTML and JSON filenames match)
+                    if (!jsonFilePath && platformPath && subjectName) {
+                        jsonFilePath = `${platformPath}/${subjectName}.json`;
+                    }
+                }
+
+                console.log('Auto-detected from referrer:', { platformPath, subjectName, jsonFilePath, referrerPath });
+            } catch (e) {
+                console.warn('Could not parse referrer URL:', e);
+            }
+        }
+
+        // Priority 3: Construct from platformPath and subject if available
+        if (!jsonFilePath && platformPath && subjectName) {
+            jsonFilePath = `${platformPath}/${subjectName}.json`;
+        }
+
+        // reCAPTCHA callback - enable button when completed
+        function onRecaptchaSuccess() {
+            document.getElementById('verify-btn').disabled = false;
+            document.getElementById('error-message').textContent = '';
+        }
+
+        // reCAPTCHA expired callback - disable button again
+        function onRecaptchaExpired() {
+            document.getElementById('verify-btn').disabled = true;
+            document.getElementById('error-message').textContent = 'reCAPTCHA expired. Please verify again.';
+        }
+
+        // ── Verify and proceed directly to player (Offerwall removed) ──────
+        function verifyAndProceed() {
+            const response = grecaptcha.getResponse();
+
+            if (!response) {
+                document.getElementById('error-message').textContent = 'Please complete the reCAPTCHA verification';
+                return;
+            }
+
+            // Hide reCAPTCHA screen and show player directly
+            document.getElementById('verification-screen').style.display = 'none';
+            showPlayer();
+        }
+
+        // Render media only after the Supabase access code has been claimed.
+        function renderMediaIframe(container, url, title) {
+            container.innerHTML = '';
+            const iframe = document.createElement('iframe');
+            iframe.src = url;
+            iframe.title = title;
+            iframe.allow = 'accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen';
+            iframe.allowFullscreen = true;
+            iframe.setAttribute('webkitallowfullscreen', '');
+            iframe.setAttribute('mozallowfullscreen', '');
+            container.appendChild(iframe);
+        }
+
+        async function openProtectedMedia(rawUrl, action, title) {
+            const iframeContainer = document.getElementById('main-iframe-container');
+            iframeContainer.innerHTML = `<div class="loading">Preparing secure ${action} access...</div>`;
+
+            if (typeof window.claimProtectedMediaUrl !== 'function') {
+                iframeContainer.innerHTML = '<div class="error-message">Secure media access is not ready. Please refresh and try again.</div>';
+                return false;
+            }
+
+            const protectedUrl = await window.claimProtectedMediaUrl(rawUrl, action);
+            if (!protectedUrl) {
+                iframeContainer.innerHTML = '<div class="error-message">This media could not be opened securely.</div>';
+                return false;
+            }
+
+            renderMediaIframe(iframeContainer, protectedUrl, title);
+            return true;
+        }
+
+        // Show player screen
+        async function showPlayer() {
+            if (!streamUrl && contentType !== 'pdf') {
+                document.getElementById('error-message').textContent = 'Missing stream URL';
+                return;
+            }
+
+            // Hide verification, show player
+            document.getElementById('verification-screen').style.display = 'none';
+            document.getElementById('player-screen').style.display = 'block';
+
+            // Set title
+            document.getElementById('video-title').textContent = decodeURIComponent(videoTitle);
+
+            if (contentType === 'pdf') {
+                // PDF mode: replace player area with a download UI
+                const iframeContainer = document.getElementById('main-iframe-container');
+                iframeContainer.style.paddingBottom = '0';
+                iframeContainer.style.background = 'transparent';
+                iframeContainer.innerHTML = `
+                    <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;padding:3rem 1rem;gap:1rem;">
+                        <i class="fas fa-file-pdf" style="font-size:5rem;color:#e67e22;"></i>
+                        <p style="color:var(--medium-gray);font-size:1rem;text-align:center;">Your PDF is ready. Click a button below to download.</p>
+                    </div>
+                `;
+
+                // Hide Watch S2 button (not relevant for PDF)
+                const watchBtn = document.getElementById('watch-s2-btn');
+                if (watchBtn) watchBtn.style.display = 'none';
+
+                // Update download buttons to load URL in embedded iframe (same as video download)
+                async function loadPdfInIframe(url) {
+                    if (!url) { alert('Download URL not available'); return; }
+                    await openProtectedMedia(url, 'download', 'Download PDF');
+                    iframeContainer.style.paddingBottom = '56.25%';
+                }
+
+                const s1Btn = document.getElementById('download-s1-btn');
+                if (s1Btn) {
+                    s1Btn.innerHTML = '<i class="fas fa-file-pdf"></i> DOWNLOAD PDF - S1';
+                    s1Btn.onclick = function() { loadPdfInIframe(downloadUrl); };
+                }
+
+                const s2Btn = document.getElementById('download-s2-btn');
+                if (s2Btn) {
+                    s2Btn.innerHTML = '<i class="fas fa-file-pdf"></i> DOWNLOAD PDF - S2';
+                    s2Btn.onclick = function() {
+                        const url = downloadUrlX || (downloadUrl && downloadUrl.replace('web.afrahtafreeh.site', 'webx.afrahtafreeh.site'));
+                        loadPdfInIframe(url);
+                    };
+                }
+
+                // Hide next lectures sidebar (not applicable for PDFs)
+                const sidebar = document.querySelector('.youtube-sidebar');
+                if (sidebar) sidebar.style.display = 'none';
+
+            } else {
+                // Video mode: claim the stream before loading the protected URL.
+                await openProtectedMedia(
+                    _randomStreamUrl(),
+                    'stream',
+                    decodeURIComponent(videoTitle)
+                );
+
+                // Show 4th YouTube video on desktop (guard against missing element)
+                if (window.innerWidth >= 992) {
+                    const yt4 = document.getElementById('youtube-video-4');
+                    if (yt4) yt4.style.display = 'block';
+                }
+            }
+        }
+
+        // Update verification description for PDF mode
+        (function initPageForType() {
+            if (contentType === 'pdf') {
+                const desc = document.getElementById('verify-desc');
+                if (desc) desc.textContent = 'Please complete the verification below to download the PDF';
+            }
+        })();
+
+        // Handle download button (Server-1) — randomly picks a server on each click
+        function handleDownload() {
+            const chosenUrl = _randomDownloadUrl();
+            if (!chosenUrl) {
+                alert('Download URL not available');
+                return;
+            }
+            openProtectedMedia(chosenUrl, 'download', decodeURIComponent(videoTitle));
+                const iframeContainer = document.getElementById('main-iframe-container');
+                /*
+                iframeContainer.innerHTML = `
+                    <iframe src="${chosenUrl}"
+                            title="Download ${decodeURIComponent(videoTitle)}"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            allowfullscreen
+                            webkit-allowfullscreen
+                            mozallowfullscreen>
+                    </iframe>
+                `;
+            */
+        }
+
+        // Handle Watch - S2 button (Server-2 streaming)
+        function handleWatchS2() {
+            const chosenUrl = _randomStreamUrl();
+            if (!chosenUrl) {
+                alert('Stream URL not available');
+                return;
+            }
+            openProtectedMedia(chosenUrl, 'stream', decodeURIComponent(videoTitle));
+            const iframeContainer = document.getElementById('main-iframe-container');
+            /*
+            iframeContainer.innerHTML = `
+                <iframe src="${chosenUrl}"
+                        title="${decodeURIComponent(videoTitle)}"
+                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                        allowfullscreen
+                        webkit-allowfullscreen
+                        mozallowfullscreen>
+                </iframe>
+            */
+        }
+
+        // Handle Download - S2 button (randomly picks a server, same as S1)
+        function handleDownloadS2() {
+            const chosenUrl = _randomDownloadUrl();
+            if (!chosenUrl) {
+                alert('Download URL not available');
+                return;
+            }
+            openProtectedMedia(chosenUrl, 'download', decodeURIComponent(videoTitle));
+            /*
+                const iframeContainer = document.getElementById('main-iframe-container');
+                iframeContainer.innerHTML = `
+                    <iframe src="${chosenUrl}"
+                            title="Download ${decodeURIComponent(videoTitle)}"
+                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+                            allowfullscreen
+                            webkit-allowfullscreen
+                            mozallowfullscreen>
+                    </iframe>
+                `;
+            */
+        }
+
+        // Format platform name for file paths
+        function formatPlatformForPath(platform) {
+            const mapping = {
+                'PrepLadder 6.0': 'prepladder6',
+                'PrepLadder 6X': 'prepladder6x',
+                'PrepLadder 5.0': 'prepladder5',
+                'Marrow': 'marrow',
+                'Marrow 6.0': 'marrow6',
+                'DAMS': 'dams',
+                'E-Gurukul': 'egurukul',
+                'Physics Wallah': 'physicswala',
+                'Cerebellum': 'cerebellum',
+                'Doctut': 'doctut',
+                'MIST': 'mist',
+                'Special Lectures': 'specific'
+            };
+            return mapping[platform] || platform.toLowerCase();
+        }
+
+        // Get default thumbnail
+        function getDefaultThumbnail() {
+            return 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="280" height="157" viewBox="0 0 280 157"%3E%3Crect fill="%23000" width="280" height="157"/%3E%3Ctext x="50%25" y="50%25" fill="%23666" font-family="Arial" font-size="16" text-anchor="middle" dominant-baseline="middle"%3ENo Thumbnail%3C/text%3E%3C/svg%3E';
+        }
+
+        // Helper function to render next lectures
+        async function renderNextLectures(data, jsonPath, container) {
+            if (!data.lectures || !Array.isArray(data.lectures)) {
+                throw new Error('Invalid lecture data');
+            }
+
+            // Find current lecture index
+            // Priority 1: Use explicit lectureIndex from URL parameter (most reliable)
+            let currentIndex = lectureIndex;
+
+            // Priority 2: Fall back to title matching if index not provided
+            if (currentIndex === null || currentIndex === undefined || isNaN(currentIndex)) {
+                currentIndex = data.lectures.findIndex(lecture =>
+                    lecture.title === videoTitle
+                );
+                console.log('Lecture index not provided, found by title matching:', currentIndex);
+            } else {
+                console.log('Using provided lecture index:', currentIndex);
+            }
+
+            // Get next 4 lectures
+            const nextLectures = currentIndex !== -1 ?
+                data.lectures.slice(currentIndex + 1, currentIndex + 5) :
+                data.lectures.slice(0, 4);
+
+            if (nextLectures.length === 0) {
+                container.innerHTML = '<div class="no-more-lectures">No more lectures in this subject</div>';
+                return;
+            }
+
+            // Store the jsonPath for use when clicking next lectures
+            window.currentJsonPath = jsonPath;
+            // Store all lectures and current index for navigation
+            window.allLectures = data.lectures;
+            window.currentLectureIndex = currentIndex;
+
+            // Render next lectures
+            container.innerHTML = '';
+            nextLectures.forEach((lecture, relativeIndex) => {
+                // Calculate the actual index in the full lectures array
+                const actualIndex = currentIndex + 1 + relativeIndex;
+
+                const card = document.createElement('div');
+                card.className = 'next-lecture-card';
+                card.onclick = () => openLecture(lecture, actualIndex);
+
+                card.innerHTML = `
+                    <img src="${lecture.thumbnailUrl || getDefaultThumbnail()}"
+                         alt="${lecture.title}"
+                         class="next-lecture-thumbnail"
+                         loading="lazy"
+                         onerror="this.src='${getDefaultThumbnail()}'">
+                    <div class="next-lecture-info">
+                        <div class="next-lecture-title">${lecture.title}</div>
+                    </div>
+                `;
+
+                container.appendChild(card);
+            });
+        }
+
+        // Search manifest.json to find which JSON file contains the current video
+        async function findJsonFileByTitle(title) {
+            try {
+                // FIX 1: Correct path - no 1234xxx/ prefix for manifest
+                const manifestResponse = await fetch('./1234xxx/manifest.json');
+                if (!manifestResponse.ok) {
+                    console.error('Failed to load manifest.json:', manifestResponse.status);
+                    return null;
+                }
+
+                const manifest = await manifestResponse.json();
+                console.log('Manifest loaded successfully');
+
+                // Search through all platforms and their JSON files
+                for (const platformConfig of manifest) {
+                    const { platform, subfolder, files } = platformConfig;
+
+                    // FIX 2: Properly construct base path
+                    const basePath = subfolder === 'non' ?
+                        `1234xxx/${platform}` :
+                        `1234xxx/${platform}/${subfolder}`;
+
+                    console.log(`Searching in ${basePath}...`);
+
+                    // Check each JSON file to see if it contains the current lecture
+                    for (const jsonFile of files) {
+                        try {
+                            const jsonPath = `${basePath}/${jsonFile}`;
+                            const response = await fetch(jsonPath);
+                            if (!response.ok) {
+                                console.log(`Skipped ${jsonPath} (${response.status})`);
+                                continue;
+                            }
+
+                            const data = await response.json();
+                            if (!data.lectures || !Array.isArray(data.lectures)) continue;
+
+                            // FIX 3: Use lectureIndex first, then fallback to title matching
+                            let found = false;
+                            let foundIndex = -1;
+
+                            if (lectureIndex !== null && lectureIndex !== undefined) {
+                                // If lectureIndex is provided, verify the title matches
+                                if (data.lectures[lectureIndex] &&
+                                    data.lectures[lectureIndex].title === title) {
+                                    found = true;
+                                    foundIndex = lectureIndex;
+                                }
+                            } else {
+                                // Fall back to title matching (problematic with duplicate titles)
+                                foundIndex = data.lectures.findIndex(lecture => lecture.title === title);
+                                found = foundIndex !== -1;
+                            }
+
+                            if (found) {
+                                console.log(`Found video "${title}" in ${jsonPath} at index ${foundIndex}`);
+                                return jsonPath.replace('1234xxx/', ''); // Return relative path
+                            }
+                        } catch (e) {
+                            console.error(`Error processing ${jsonFile}:`, e.message);
+                            continue;
+                        }
+                    }
+                }
+
+                console.warn('Video not found in manifest');
+                return null;
+            } catch (e) {
+                console.error('Error searching manifest:', e);
+                return null;
+            }
+        }
+
+        // Load next lectures from the same subject
+        async function loadNextLectures() {
+            const container = document.getElementById('nextLecturesContainer');
+
+            let finalJsonPath = jsonFilePath;
+            let attemptedPaths = [];
+
+            console.log('loadNextLectures started. jsonFilePath:', jsonFilePath);
+            console.log('videoTitle:', videoTitle, 'lectureIndex:', lectureIndex);
+
+            // Strategy 1: Try explicit/auto-detected jsonPath first (if provided)
+            if (finalJsonPath) {
+                try {
+                    const filePath = `./1234xxx/${finalJsonPath}`;
+                    attemptedPaths.push(filePath);
+                    console.log('Trying jsonPath:', filePath);
+
+                    const response = await fetch(filePath);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.lectures && Array.isArray(data.lectures)) {
+                            console.log('Successfully loaded from jsonPath, rendering lectures');
+                            await renderNextLectures(data, finalJsonPath, container);
+                            return;
+                        }
+                    }
+                    console.log(`Failed to load ${filePath} (${response.status}), trying manifest search...`);
+                } catch (e) {
+                    console.log('Error loading jsonPath:', e.message);
+                }
+
+                finalJsonPath = null;
+            }
+
+            // Strategy 2: Search manifest.json by video title (handles filename mismatches)
+            if (!finalJsonPath && videoTitle) {
+                container.innerHTML = '<div class="loading" style="padding: 2rem; text-align: center;">Searching for next lectures...</div>';
+                console.log('Searching manifest for video:', videoTitle);
+                finalJsonPath = await findJsonFileByTitle(videoTitle);
+
+                if (!finalJsonPath) {
+                    console.log('Manifest search failed, attempted paths:', attemptedPaths);
+                    container.innerHTML = '<div class="no-more-lectures">No additional lectures available</div>';
+                    return;
+                }
+            }
+
+            try {
+                // Use the jsonPath found via manifest search
+                const filePath = `./1234xxx/${finalJsonPath}`;
+                console.log('Loading next lectures from:', filePath);
+
+                const response = await fetch(filePath);
+                if (!response.ok) {
+                    throw new Error(`Could not load ${filePath} (${response.status})`);
+                }
+
+                const data = await response.json();
+                console.log('Lectures loaded:', data.lectures?.length, 'lectures');
+                await renderNextLectures(data, finalJsonPath, container);
+
+            } catch (error) {
+                console.error('Error loading next lectures:', error);
+                console.error('Debug info:', {
+                    jsonFilePath,
+                    finalJsonPath,
+                    videoTitle,
+                    lectureIndex,
+                    referrer: document.referrer,
+                    error: error.message
+                });
+                container.innerHTML = `
+                    <div class="no-more-lectures">
+                        Could not load next lectures<br>
+                        <small style="opacity: 0.7;">
+                            ${error.message || 'Unknown error'}
+                        </small>
+                    </div>
+                `;
+            }
+        }
+        // Open a lecture (same as clicking from search)
+        // NEW: Pass the lecture index to avoid title matching issues
+        function openLecture(lecture, index) {
+            const params = new URLSearchParams({
+                title: lecture.title,
+                stream: lecture.streamingUrl || lecture.streamUrl || ''
+            });
+
+            // Pass the jsonPath if we found it (stored in finalJsonPath by loadNextLectures)
+            // This ensures the next video also gets the correct JSON file
+            if (window.currentJsonPath) {
+                params.append('jsonPath', window.currentJsonPath);
+            }
+
+            // NEW: Pass the lecture index so we don't need to rely on title matching
+            if (typeof index === 'number') {
+                params.append('lectureIndex', index.toString());
+            }
+
+            if (lecture.downloadUrl) {
+                params.append('download', lecture.downloadUrl);
+            }
+
+            // Pass Server 2 URLs (streamingUrlx and downloadUrlx)
+            if (lecture.streamingUrlx) {
+                params.append('streamx', lecture.streamingUrlx);
+            }
+            if (lecture.downloadUrlx) {
+                params.append('downloadx', lecture.downloadUrlx);
+            }
+
+            window.location.href = `stream-player.html?${params.toString()}`;
+        }
+
+        // ── Save last watched lecture when captcha is passed ──────────────
+        // Step 1: write to localStorage IMMEDIATELY (synchronous, no network needed)
+        (function saveImmediately() {
+            try {
+                let platform = '',
+                    subject = '';
+                if (jsonFilePath && jsonFilePath.length > 5) {
+                    const parts = jsonFilePath.replace(/\.json$/, '').split('/');
+                    subject = parts.pop() || '';
+                    platform = parts.join('/') || '';
+                } else {
+                    platform = platformPath || '';
+                    subject = subjectName || '';
+                }
+                const payload = {
+                    title: decodeURIComponent(videoTitle || ''),
+                    streamUrl: streamUrl || '',
+                    downloadUrl: downloadUrl || '',
+                    thumbnailUrl: '', // will be updated after thumbnail fetch
+                    platform: platform,
+                    subject: subject,
+                    jsonPath: (jsonFilePath && jsonFilePath.length > 5) ? jsonFilePath : '',
+                    lectureIndex: lectureIndex,
+                    savedAt: new Date().toISOString()
+                };
+                if (payload.streamUrl) {
+                    localStorage.setItem('last_watched', JSON.stringify(payload));
+                }
+            } catch (_) {}
+        })();
+
+        // Step 2: fetch thumbnail in the background and update localStorage
+        (async function fetchThumbnail() {
+            try {
+                if (!jsonFilePath || jsonFilePath.length <= 5) return;
+                const resp = await fetch('1234xxx/' + jsonFilePath);
+                if (!resp.ok) return;
+                const json = await resp.json();
+                const lectures = json.lectures || json;
+                if (!Array.isArray(lectures)) return;
+                const idx = (lectureIndex != null && lectures[lectureIndex]) ?
+                    lectureIndex :
+                    lectures.findIndex(l => l.title === decodeURIComponent(videoTitle));
+                const lec = lectures[idx >= 0 ? idx : 0];
+                if (!lec || !lec.thumbnailUrl) return;
+
+                // Update the stored record with the real thumbnail
+                const stored = localStorage.getItem('last_watched');
+                if (stored) {
+                    const prev = JSON.parse(stored);
+                    prev.thumbnailUrl = lec.thumbnailUrl;
+                    localStorage.setItem('last_watched', JSON.stringify(prev));
+                }
+
+                // Also push to Supabase if logged in
+                if (typeof saveLastWatched === 'function') {
+                    const stored2 = localStorage.getItem('last_watched');
+                    if (stored2) {
+                        const full = JSON.parse(stored2);
+                        await saveLastWatched(full);
+                    }
+                }
+            } catch (_) {}
+        })();
+
+        // Load next lectures when player is shown
+        const originalShowPlayer = showPlayer;
+        showPlayer = async function() {
+            await originalShowPlayer();
+            loadNextLectures();
+        };
+
+        // No additional initialization needed - callbacks are set via data attributes
+
+        /* Legacy download limiter replaced by the protected media flow below.
+        (function initDownloadLimit() {
+            const { createClient } = supabase;
+            const _dlSupabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+            // Returns today's date string YYYY-MM-DD in local timezone
+            function todayLocal() {
+                const d = new Date();
+                return d.getFullYear() + '-' +
+                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
+                    String(d.getDate()).padStart(2, '0');
+            }
+
+            // Midnight of today in UTC ISO for Supabase filter
+            function todayMidnightUTC() {
+                const d = new Date();
+                d.setHours(0, 0, 0, 0);
+                return d.toISOString();
+            }
+
+            // LocalStorage fallback key per user
+            function lsKey(uid) { return 'vdl_' + uid; }
+
+            function getLsCount(uid) {
+                try {
+                    const raw = localStorage.getItem(lsKey(uid));
+                    if (!raw) return 0;
+                    const obj = JSON.parse(raw);
+                    if (obj.date !== todayLocal()) return 0;
+                    return obj.count || 0;
+                } catch (_) { return 0; }
+            }
+
+            function setLsCount(uid, count) {
+                try {
+                    localStorage.setItem(lsKey(uid), JSON.stringify({ date: todayLocal(), count }));
+                } catch (_) {}
+            }
+
+            function showLimitPopup() {
+                document.getElementById('dl-limit-overlay').classList.add('active');
+            }
+
+            // Exposed globally so handleDownload / handleDownloadS2 can call it
+            window.checkVideoDownloadLimit = async function(proceedFn) {
+                // PDFs are never rate-limited
+                if (contentType === 'pdf') { proceedFn(); return; }
+
+                const { data: { session } } = await _dlSupabase.auth.getSession();
+                const uid = session && session.user ? session.user.id : null;
+
+                const DAILY_LIMIT = 5;
+
+                if (!uid) {
+                    // No session: fall back to localStorage only
+                    const count = getLsCount('guest');
+                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
+                    setLsCount('guest', count + 1);
+                    proceedFn();
+                    return;
+                }
+
+                // Try Supabase table first
+                try {
+                    const { count, error } = await _dlSupabase
+                        .from('video_download_logs')
+                        .select('*', { count: 'exact', head: true })
+                        .eq('user_id', uid)
+                        .gte('downloaded_at', todayMidnightUTC());
+
+                    if (error) throw error;
+
+                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
+
+                    // Log this download
+                    await _dlSupabase.from('video_download_logs').insert({
+                        user_id: uid,
+                        video_title: decodeURIComponent(videoTitle)
+                    });
+
+                    // Keep localStorage in sync as backup
+                    setLsCount(uid, count + 1);
+                    proceedFn();
+                } catch (_) {
+                    // Table may not exist yet — fall back to localStorage
+                    const count = getLsCount(uid);
+                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
+                    setLsCount(uid, count + 1);
+                    proceedFn();
+                }
+             };
+         */
+
+        // ── Protected media access (5 downloads + 5 streams per day) ────────
+        // The access code is created for the current user immediately before
+        // a media URL is loaded. The SQL RPC performs the atomic daily limit
+        // check, so client-side storage cannot bypass the quota.
+        (function initProtectedMediaAccess() {
+            const { createClient } = supabase;
+            const _mediaSupabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+            const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            const CODE_TTL_MS = 24 * 60 * 60 * 1000;
+
+            function generateAccessCode() {
+                const bytes = new Uint8Array(10);
+                crypto.getRandomValues(bytes);
+                return Array.from(bytes, byte => CODE_ALPHABET[byte % CODE_ALPHABET.length]).join('');
+            }
+
+            function appendAccessCode(rawUrl, code) {
+                const protectedUrl = new URL(rawUrl, window.location.href);
+                if (!['http:', 'https:'].includes(protectedUrl.protocol)) {
+                    throw new Error('Unsupported media URL');
+                }
+                protectedUrl.searchParams.delete('access_code');
+                protectedUrl.searchParams.set('access_code', code);
+                return protectedUrl.toString();
+            }
+
+            function showLimitPopup(action) {
+                const title = document.querySelector('#dl-limit-box h3');
+                const description = document.querySelector('#dl-limit-box p');
+                const actionName = action === 'stream' ? 'stream' : 'download';
+
+                if (title) {
+                    title.textContent = `Daily ${actionName === 'stream' ? 'Stream' : 'Download'} Limit Reached`;
+                }
+                if (description) {
+                    description.innerHTML = `You can ${actionName} up to <strong>5 ${actionName}s per day</strong>.<br>
+                        Your limit resets at <strong>midnight</strong>.<br>
+                        ${actionName === 'stream' ? 'You can still <strong>download</strong> available files.' : 'You can still <strong>watch</strong> available videos.'}`;
+                }
+                document.getElementById('dl-limit-overlay').classList.add('active');
+            }
+
+            function getLectureKey() {
+                const path = String(
+                    jsonFilePath || [platformPath, subjectName].filter(Boolean).join('/')
+                ).trim();
+                const hasLectureIndex = Number.isInteger(lectureIndex) && lectureIndex >= 0;
+                let title = '';
+
+                try {
+                    title = decodeURIComponent(videoTitle || '').trim();
+                } catch (_) {
+                    title = String(videoTitle || '').trim();
+                }
+
+                // Prefer the page's JSON path and index so the same lecture keeps
+                // one quota record when the user switches between S1/S2 or
+                // stream/download. Older links may not have an index, so title is
+                // the stable fallback for those links.
+                if (path && hasLectureIndex) return `${path}#${lectureIndex}`;
+                if (path && title) return `${path}#${title}`;
+                if (title) return title;
+                return String(streamUrl || downloadUrl || '').trim();
+            }
+
+            window.claimProtectedMediaUrl = async function(rawUrl, action) {
+                if (!rawUrl) {
+                    alert(`${action === 'stream' ? 'Stream' : 'Download'} URL not available`);
+                    return null;
+                }
+                if (!['download', 'stream'].includes(action)) {
+                    console.error('Unsupported protected media action:', action);
+                    return null;
+                }
+
+                try {
+                    const { data: sessionData, error: sessionError } = await _mediaSupabase.auth.getSession();
+                    if (sessionError) throw sessionError;
+
+                    const user = sessionData?.session?.user;
+                    if (!user) {
+                        alert('Please sign in before opening protected media.');
+                        return null;
+                    }
+
+                    const code = generateAccessCode();
+                    const expiresAt = new Date(Date.now() + CODE_TTL_MS).toISOString();
+                    const { error: insertError } = await _mediaSupabase
+                        .from('media_access_codes')
+                        .insert({
+                            code,
+                            user_id: user.id,
+                            expires_at: expiresAt
+                        });
+
+                    if (insertError) throw insertError;
+
+                    const lectureKey = getLectureKey();
+                    if (!lectureKey) throw new Error('Unable to identify the lecture');
+
+                    const { data: claim, error: claimError } = await _mediaSupabase.rpc(
+                        'claim_media_access',
+                        {
+                            p_code: code,
+                            p_action: action,
+                            p_lecture_key: lectureKey
+                        }
+                    );
+
+                    if (claimError) throw claimError;
+
+                    if (!claim?.allowed) {
+                        if (claim?.reason === 'daily_limit') {
+                            showLimitPopup(action);
+                        } else {
+                            alert('This protected media link is not available.');
+                        }
+                        return null;
+                    }
+
+                    return appendAccessCode(rawUrl, code);
+                } catch (error) {
+                    console.error('Protected media access failed:', error);
+                    alert('Secure media access is temporarily unavailable. Please try again.');
+                    return null;
+                }
+            };
+        })();
+    </script>
+
+    <!-- Download limit popup -->
+    <div id="dl-limit-overlay" onclick="if(event.target===this)this.classList.remove('active')">
+        <div id="dl-limit-box">
+            <div class="dl-icon">🚫</div>
+            <h3>Daily Media Limit Reached</h3>
+            <div class="dl-count-badge">5 / 5</div>
+            <p>You can download or stream up to <strong>5 times per day</strong>.<br>
+               Your limit resets at <strong>midnight</strong>.<br>
+               Each action is tracked separately.</p>
+            <button id="dl-limit-close-btn" onclick="document.getElementById('dl-limit-overlay').classList.remove('active')">
+                Got it
+            </button>
+        </div>
+    </div>
+
+    <!-- How to get bot token modal (replace the images with your own screenshots) -->
+    <div id="tg-howto-overlay" onclick="if(event.target===this)closeHowToModal()" data-testid="how-to-modal">
+        <div id="tg-howto-box">
+            <button id="tg-howto-close" onclick="closeHowToModal()" aria-label="Close" data-testid="how-to-close-btn">&times;</button>
+            <h3><i class="fab fa-telegram-plane"></i> How to get your Bot Token</h3>
+            <ol class="tg-steps">
+                <li>
+                    <p><b>Step 1.</b> Open Telegram, search for <b>@BotFather</b> and press <b>Start</b>.</p>
+                    <img src="https://picsum.photos/seed/botfather-step1/620/320" alt="Open BotFather" loading="lazy">
+                </li>
+                <li>
+                    <p><b>Step 2.</b> Send <b>/newbot</b>, then choose a name and a username that ends with <b>bot</b>.</p>
+                    <img src="https://picsum.photos/seed/botfather-step2/620/320" alt="Send /newbot" loading="lazy">
+                </li>
+                <li>
+                    <p><b>Step 3.</b> BotFather replies with your <b>bot token</b> (like <code>123456789:ABC-DEF...</code>). Copy it.</p>
+                    <img src="https://picsum.photos/seed/botfather-step3/620/320" alt="Copy the token" loading="lazy">
+                </li>
+                <li>
+                    <p><b>Step 4.</b> Open your new bot, press <b>Start</b> once, then paste the token here.</p>
+                    <img src="https://picsum.photos/seed/botfather-step4/620/320" alt="Start your bot" loading="lazy">
+                </li>
+            </ol>
+            <button class="tg-action-btn" onclick="closeHowToModal()" data-testid="how-to-got-it-btn">Got it</button>
+        </div>
+    </div>
+
+    <script>
+    // ── Get File In Telegram (tab): register the user's bot token once (saved to
+    //    their Supabase profile via the PWA's Google-auth session), then deliver
+    //    the current video into their own bot with protect_content ON. No limits.
+    (function initTelegramDelivery() {
+        const { createClient } = supabase;
+        const _tgSb = createClient(SUPABASE_URL, SUPABASE_KEY);
+        const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        function el(id) { return document.getElementById(id); }
+        function setMsg(t, k) { const m = el('tg-msg'); if (m) { m.textContent = t || ''; m.className = k || ''; } }
+
+        function genCode() {
+            const bytes = new Uint8Array(10);
+            crypto.getRandomValues(bytes);
+            return Array.from(bytes, b => CODE_ALPHABET[b % CODE_ALPHABET.length]).join('');
+        }
+
+        function extractTokenAndOrigin() {
+            const candidate = (typeof streamUrl === 'string' && streamUrl) ||
+                              (typeof downloadUrl === 'string' && downloadUrl) || '';
+            if (!candidate) return { token: null, origin: null };
+            let u;
+            try { u = new URL(candidate, window.location.href); } catch (_) { return { token: null, origin: null }; }
+            const patterns = [ /\/prepare\/([A-Za-z0-9_-]+)/, /\/api\/(?:generate|download)\/([A-Za-z0-9_-]+)/ ];
+            for (const re of patterns) { const m = u.pathname.match(re); if (m) return { token: m[1], origin: u.origin }; }
+            return { token: null, origin: u.origin };
+        }
+
+        async function getUser() {
+            const { data } = await _tgSb.auth.getSession();
+            return data && data.session ? data.session.user : null;
+        }
+
+        async function getSavedToken(userId) {
+            const { data, error } = await _tgSb.from('profiles').select('telegram_bot_token').eq('id', userId).maybeSingle();
+            if (error) return null;
+            return data && data.telegram_bot_token ? data.telegram_bot_token : null;
+        }
+
+        let _state = 'idle';   // 'register' | 'deliver'
+        let _loaded = false;
+
+        async function loadTelegramPanel(force) {
+            if (_loaded && !force) return;
+            _loaded = true;
+            setMsg('');
+            const btn = el('tg-action-btn');
+            const row = el('tg-token-row');
+            btn.disabled = true; btn.textContent = 'Please wait…';
+            row.style.display = 'none';
+            el('tg-desc').textContent = 'Checking your account…';
+
+            const user = await getUser();
+            if (!user) {
+                el('tg-title').textContent = 'Sign in required';
+                el('tg-desc').textContent = 'Please sign in to receive lectures inside your own Telegram bot.';
+                btn.style.display = 'none';
+                return;
+            }
+            btn.style.display = '';
+
+            const saved = await getSavedToken(user.id);
+            if (!saved) {
+                _state = 'register';
+                el('tg-title').textContent = 'Connect your Telegram bot';
+                el('tg-desc').innerHTML = 'Paste your Telegram <b>bot token</b> below (one-time setup). Not sure how? Tap “How to get bot token?”.';
+                row.style.display = '';
+                el('tg-token-input').value = '';
+                btn.textContent = 'Save bot token';
+                btn.disabled = false;
+            } else {
+                _state = 'deliver';
+                el('tg-title').textContent = 'Send this lecture to Telegram';
+                el('tg-desc').innerHTML = 'Your bot is connected. Tap below and this video is delivered into your Telegram bot with content protection ON — <b>no daily limit</b>.';
+                row.style.display = 'none';
+                btn.textContent = 'Send to my Telegram';
+                btn.disabled = false;
+            }
+        }
+        window._loadTelegramPanel = loadTelegramPanel;
+
+        window.tgPrimaryAction = async function() {
+            const btn = el('tg-action-btn');
+
+            if (_state === 'register') {
+                const token = el('tg-token-input').value.trim();
+                if (!/^\d{6,}:[A-Za-z0-9_-]{30,}$/.test(token)) { setMsg('That does not look like a valid bot token.', 'err'); return; }
+                btn.disabled = true; setMsg('Saving…', '');
+                const user = await getUser();
+                if (!user) { setMsg('Please sign in first.', 'err'); btn.disabled = false; return; }
+                const { error } = await _tgSb.from('profiles').update({ telegram_bot_token: token }).eq('id', user.id);
+                if (error) { setMsg('Could not save your token. Please try again.', 'err'); btn.disabled = false; return; }
+                setMsg('✅ Bot token saved.', 'ok');
+                await loadTelegramPanel(true);
+                return;
+            }
+
+            if (_state !== 'deliver') return;
+
+            const { token, origin } = extractTokenAndOrigin();
+            if (!token || !origin) { setMsg('Could not identify this video.', 'err'); return; }
+            btn.disabled = true; setMsg('Sending to your Telegram bot…', '');
+
+            const user = await getUser();
+            if (!user) { setMsg('Please sign in first.', 'err'); btn.disabled = false; return; }
+
+            const code = genCode();
+            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+            const { error: insErr } = await _tgSb.from('media_access_codes').insert({ code, user_id: user.id, expires_at: expiresAt });
+            if (insErr) { setMsg('Access could not be prepared. Try again.', 'err'); btn.disabled = false; return; }
+
+            try {
+                const resp = await fetch(`${origin}/api/telegram/${token}?access_code=${encodeURIComponent(code)}`);
+                const data = await resp.json();
+                if (data.success) setMsg('✅ ' + (data.message || 'Sent to your Telegram bot.'), 'ok');
+                else setMsg(data.error || 'Delivery failed. Please try again.', 'err');
+            } catch (_) { setMsg('Delivery service is unavailable right now.', 'err'); }
+            btn.disabled = false;
+        };
+    })();
+
+    // ── Player tabs: Get File In Telegram | Stream Online ──
+    function switchPlayerTab(which) {
+        const isTg = which === 'telegram';
+        const tgPanel = document.getElementById('telegram-panel');
+        const stPanel = document.getElementById('stream-online-panel');
+        const tgTab = document.getElementById('tab-telegram');
+        const stTab = document.getElementById('tab-stream');
+        if (tgPanel) tgPanel.style.display = isTg ? 'block' : 'none';
+        if (stPanel) stPanel.style.display = isTg ? 'none' : 'block';
+        if (tgTab) tgTab.classList.toggle('active', isTg);
+        if (stTab) stTab.classList.toggle('active', !isTg);
+        if (isTg && typeof window._loadTelegramPanel === 'function') window._loadTelegramPanel(false);
+    }
+    window.switchPlayerTab = switchPlayerTab;
+
+    // ── How to get bot token modal ──
+    function openHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.add('active'); }
+    function closeHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.remove('active'); }
+    window.openHowToModal = openHowToModal;
+    window.closeHowToModal = closeHowToModal;
+    </script>
+
+<script src="theme.js"></script>
+</body>
+</html>

@@ -1,0 +1,26 @@
+{
+  "summary": "Ran the 4 backend checks against http://127.0.0.1:8899. Health (GET /) PASS -> server_status=running, telegram_bot=@streamtedt_bot, connected_bots=1. Access-code guards PASS -> BADCODE returns HTTP 403 {\"success\": false, \"error\": \"This link is invalid or has expired.\"}; missing access_code returns HTTP 403 text 'This link requires an access_code.'. Happy-path admin rotation could NOT be validated: GET /api/telegram/VhkJDs-2a_XjirHVo1-fkg?access_code=AKAVLZ6SK3 returns HTTP 403 {\"success\": false, \"error\": \"This link is invalid or has expired.\"} — identical to BADCODE, meaning the Supabase RPC resolve_media_access_code returned valid=false for code AKAVLZ6SK3. The request short-circuits at validate_access_code (stream_routes.py:558) before ever reaching fetch_delivery_config / acquire_bin_admin / deliver_via_user_bot / release_bin_admin, so the promote->deliver->demote rotation was NOT exercised in this run. /tmp/app_root.log shows NO telegram_delivery errors (no 'Failed to promote', 'Failed to demote', 'FRESH_CHANGE_ADMINS_FORBIDDEN', no supabase RPC error) — consistent with an early access-code rejection rather than a code bug.",
+  "backend_issues": {
+    "critical": [
+      {"endpoint": "GET /api/telegram/{token}?access_code=AKAVLZ6SK3", "issue": "Supabase resolve_media_access_code RPC currently reports AKAVLZ6SK3 as invalid/expired, so the endpoint returns 403 and the admin-rotation happy path cannot be verified. Code path in stream_routes.deliver_to_user_bot_handler and telegram_delivery.acquire_bin_admin/release_bin_admin was NOT executed this iteration.", "priority": "HIGH"}
+    ],
+    "minor": []
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [
+    "Refresh/reactivate access code AKAVLZ6SK3 in Supabase (row is currently returning valid=false from resolve_media_access_code RPC), or supply a new active code + matching temp token in /app/memory/test_credentials.md, then re-run the happy-path curl to validate promote/deliver/demote rotation against @Sndnndnnd_bot."
+  ],
+  "critical_code_review_comments": [
+    "stream_routes.deliver_to_user_bot_handler (lines 548-698) correctly wraps deliver_via_user_bot in try/finally that only demotes when status=='promoted' — good, protects the 'already admin' branch from being demoted.",
+    "The Supabase-invalid path and BADCODE path return the exact same 'This link is invalid or has expired.' message, which makes it impossible to distinguish an expired code from a genuinely wrong code during debugging. Consider adding a distinct error string or a structured error code."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "75% (3/4 checks: health OK, bad-code 403 OK, missing-code 403 OK, happy-path BLOCKED by Supabase code state)", "frontend": "skipped"},
+  "test_credentials": "Attempted token VhkJDs-2a_XjirHVo1-fkg + access_code AKAVLZ6SK3 per /app/memory/test_credentials.md — code currently rejected by Supabase RPC.",
+  "seed_data_creation": "None",
+  "retest_needed": true,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "App is running under `setsid ./.venv/bin/python -m biisal` writing to /tmp/app_root.log (29 lines, no request/error entries beyond startup banner). Use curl to http://127.0.0.1:8899 only. Do NOT spawn a second pyrogram process (token/session conflict). If main agent refreshes AKAVLZ6SK3 in Supabase (or provides a new code), rerun: curl -sw '\\nHTTP:%{http_code}\\n' 'http://127.0.0.1:8899/api/telegram/VhkJDs-2a_XjirHVo1-fkg?access_code=AKAVLZ6SK3' and then `grep -iE 'promote|demote|FRESH_CHANGE_ADMINS_FORBIDDEN|telegram_delivery' /tmp/app_root.log` to confirm rotation ran cleanly.",
+  "rca of the issue": "Root cause: the Supabase-side state of access code AKAVLZ6SK3 has changed since iteration_1 — resolve_media_access_code RPC now returns valid=false (or the row is expired/deactivated/quota-exhausted). Evidence: (1) same 'invalid or has expired' 403 for AKAVLZ6SK3 and BADCODE; (2) /tmp/app_root.log has no 'Supabase RPC ... failed' error, meaning the RPC call itself succeeded HTTP-wise; (3) supabase_quota._resolve_code raises the 403 at result.get('valid')==False (supabase_quota.py:156-157). Reproduction: `curl -sw '\\n%{http_code}\\n' 'http://127.0.0.1:8899/api/telegram/VhkJDs-2a_XjirHVo1-fkg?access_code=AKAVLZ6SK3'` -> 403. Mitigation: reactivate the access-code row in Supabase (or issue a new one) and re-run; no code change required in /app/biisal for this failure."
+}

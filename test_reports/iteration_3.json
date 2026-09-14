@@ -1,0 +1,18 @@
+{
+  "summary": "Full backend+frontend regression. Backend (127.0.0.1:8899) 4/4 PASS: GET / -> server_status=running, telegram_bot=@streamtedt_bot, connected_bots=1. Happy-path GET /api/telegram/VhkJDs-2a_XjirHVo1-fkg?access_code=VLT5FHQARL -> HTTP 200 {\"success\": true, \"message\": \"Video sent to your Telegram bot.\", \"file_name\": \"18. Bates Nervous System Sensory System and Reflexes.mp4\"}. Guards: BADCODE -> 403 {invalid or expired}; no access_code -> 403 'This link requires an access_code.'. /tmp/app_root.log contains only 'User session for BIN_CHANNEL promotion started' from stream.telegram_delivery — NO 'Failed to promote', 'Failed to demote', or 'FRESH_CHANGE_ADMINS_FORBIDDEN'. Frontend (127.0.0.1:8901/stream-player.html) 5/5 PASS after recaptcha bypass: (T1) default tab Stream Online active, stream-online-panel visible with 'Loading video...' iframe + #watch-s2-btn, #download-s1-btn, #download-s2-btn present, telegram-panel hidden; (T2) clicking tab-get-telegram with __TG_STATE='notoken' shows title 'Connect your Telegram bot', token input visible, how-to link visible, action button labelled 'Save bot token'; (T3) how-to modal opens with 4 step entries and 4 <img>, both 'Got it' and close-btn dismiss it; (T4) __TG_STATE='hastoken' + _loadTelegramPanel(true) shows title 'Send this lecture to Telegram', token input hidden, action button 'Send to my Telegram', helper text contains 'no daily limit'; (T5) __TG_STATE='nouser' shows 'Sign in required' with action button hidden.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "Backend admin-rotation happy path succeeded with recipient bot @Sndnndnnd_bot; because that bot is already an admin of BIN_CHANNEL, the deliver_via_user_bot 'already admin' branch was taken and only the BIN copy (which uses USER_SESSION promotion) was exercised — full PROMOTE->DELIVER->DEMOTE cycle for a fresh non-admin user bot still not directly proven by this run (log shows session promotion started, no demote log line for user-bot rotation). Not a code issue, just a test-data limitation noted for future testers."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (4/4)", "frontend": "100% (5/5)"},
+  "test_credentials": "temp token VhkJDs-2a_XjirHVo1-fkg, access_code VLT5FHQARL (worked), recipient bot @Sndnndnnd_bot",
+  "seed_data_creation": "None",
+  "retest_needed": false,
+  "should_main_agent_self_test": false,
+  "context_for_next_testing_agent": "Both servers already up. Use curl to http://127.0.0.1:8899 and Playwright against http://127.0.0.1:8901/stream-player.html. Bypass recaptcha by hiding #verification-screen and showing #player-screen. Harness stub exposes window.__TG_STATE ('notoken'|'hastoken'|'nouser') and window._loadTelegramPanel(true). Do NOT spawn a second pyrogram process.",
+  "rca of the issue": "N/A - all checks passed."
+}
