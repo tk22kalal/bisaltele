@@ -39,8 +39,6 @@ _session_account_id: int | None = None
 _peer_cache: dict = {}          # bot_id -> resolved MTProto peer (per process)
 _delivery_locks: dict = {}      # bot_id -> asyncio.Lock (serialize per bot)
 
-_DELETE_AFTER_SECONDS = 24 * 60 * 60    # best-effort auto-delete of delivered msg
-
 
 # ── Supabase helpers (RPC only, matches supabase_quota pattern) ───────────────
 
@@ -150,20 +148,6 @@ async def delete_user_message(bot_token: str, chat_id, message_id: int):
         await _bot_api(bot_token, "deleteMessage", {"chat_id": chat_id, "message_id": message_id})
     except Exception as error:  # noqa: BLE001
         logger.warning("Auto-delete failed for chat %s msg %s: %s", chat_id, message_id, error)
-
-
-def schedule_message_deletion(bot_token: str, chat_id, message_id, delay: int = _DELETE_AFTER_SECONDS):
-    """Fire-and-forget: remove the delivered video from the user's bot after `delay`.
-
-    Best-effort only — an in-process timer that is lost if the bot restarts."""
-    if not message_id:
-        return
-
-    async def _task():
-        await asyncio.sleep(delay)
-        await delete_user_message(bot_token, chat_id, message_id)
-
-    asyncio.create_task(_task())
 
 
 # ── User session (copies the source message into each bot's DM) ───────────────
@@ -297,4 +281,13 @@ async def deliver_via_dm_relay(bot_token: str, chat_id, from_chat_id,
         await delete_user_message(bot_token, account_id, dm_message_id)
         if not data.get("ok"):
             return False, data.get("description", "Telegram delivery failed")
+
+        # Keep the session account's chat list clean: archive the bot's DM
+        # (idempotent — safe to call on every delivery).
+        try:
+            await _flood_safe(lambda: client.archive_chats(bot_id),
+                              f"archive bot DM {bot_id}")
+        except RPCError as error:
+            logger.warning("Could not archive bot DM %s: %s", bot_id, error)
+
         return True, (data.get("result") or {}).get("message_id")
