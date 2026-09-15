@@ -549,9 +549,11 @@ async def generate_download_handler(request: web.Request):
 async def deliver_to_user_bot_handler(request: web.Request):
     """Deliver a video into the user's own Telegram bot (protect_content ON).
 
-    Same entry contract as /api/generate: validate access_code, copy the source
-    message from DB_CHANNEL into BIN_CHANNEL with the main bot, then have the
-    user's own bot copy that BIN_CHANNEL message to the user."""
+    DM-relay: validate access_code, then a user session copies the DB_CHANNEL
+    message straight into the user's bot DM and the bot copies it to its owner.
+    No admin rights are needed anywhere, so DB_CHANNEL stays anonymous to the
+    user's bot, there is no 50-admin cap, and session usage is one unprivileged
+    copy per delivery."""
     try:
         token = request.match_info["token"]
         access_code = request.rel_url.query.get("access_code", "").strip()
@@ -587,9 +589,6 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 )
             await telegram_delivery.save_delivery_chat(access_code, chat_id)
 
-        # Give the user's bot full admin rights on BIN_CHANNEL only for the
-        # duration of this delivery (rotation happens after the file is ready).
-
         serve_domain = Var.SERVE_DOMAIN if Var.SERVE_DOMAIN in ('web', 'webx') else None
         temp_data = await db.get_temp_file(token, serve_domain=serve_domain)
         if not temp_data:
@@ -599,74 +598,13 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 content_type='application/json'
             )
 
-        client = StreamBot
-        original_msg = await client.get_messages(temp_data['from_chat_id'], temp_data['message_id'])
-        if not original_msg:
-            return web.json_response(
-                {"success": False, "error": "Original message not found"},
-                status=404,
-                content_type='application/json'
-            )
-
-        max_retries = 3
-        log_msg = None
-        for attempt in range(max_retries):
-            try:
-                log_msg = await original_msg.copy(
-                    chat_id=Var.BIN_CHANNEL,
-                    caption=temp_data['caption'][:1024],
-                    parse_mode=ParseMode.HTML
-                )
-                break
-            except FloodWait as e:
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(e.value)
-                else:
-                    return web.json_response(
-                        {"success": False, "error": "Server is busy. Please try again in a few seconds."},
-                        status=429,
-                        content_type='application/json'
-                    )
-            except Exception as copy_error:
-                logging.error(f"Error copying message (attempt {attempt + 1}): {copy_error}")
-                if attempt < max_retries - 1:
-                    await asyncio.sleep(2)
-                else:
-                    return web.json_response(
-                        {"success": False, "error": "Failed to process file. Please try again."},
-                        status=500,
-                        content_type='application/json'
-                    )
-
-        if not log_msg:
-            return web.json_response(
-                {"success": False, "error": "Failed to process file after retries"},
-                status=500,
-                content_type='application/json'
-            )
-
-        # Rotation: promote the user's bot -> copy the BIN message to the user ->
-        # demote it, so BIN_CHANNEL never exceeds Telegram's 50-admin cap.
-        status, bot_id, peer, admin_error = await telegram_delivery.acquire_bin_admin(
-            config["bot_token"]
+        delivered, deliver_result = await telegram_delivery.deliver_via_dm_relay(
+            bot_token=config["bot_token"],
+            chat_id=chat_id,
+            from_chat_id=temp_data['from_chat_id'],
+            message_id=temp_data['message_id'],
+            caption=temp_data.get('caption'),
         )
-        if status == "error":
-            return web.json_response(
-                {"success": False, "error": admin_error},
-                status=502,
-                content_type="application/json",
-            )
-
-        try:
-            delivered, deliver_result = await telegram_delivery.deliver_via_user_bot(
-                bot_token=config["bot_token"],
-                chat_id=chat_id,
-                bin_message_id=log_msg.id,
-                caption=temp_data.get('caption'),
-            )
-        finally:
-            if status == "promoted":
-                await telegram_delivery.release_bin_admin(bot_id, peer)
 
         if not delivered:
             return web.json_response(

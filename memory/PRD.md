@@ -113,3 +113,21 @@ test user-bot @streaammmmvps_bot (MULTI_TOKEN1). Reports:
   instead of 2 privileged ones. Risks: space session sends (FloodWait/PEER_FLOOD
   if DMing many new bots), getUpdates conflicts with webhooks on user bots,
   DM copy must stay unprotected (protected source can't be re-copied).
+
+## DM-relay IMPLEMENTED (2026-09)
+- `telegram_delivery.py` rewritten: rotation/sweeper/semaphore removed. New
+  `deliver_via_dm_relay()`: session `copy_message(DB/BIN -> bot DM)` ->
+  per-bot update-cursor `_poll_updates` (drains backlog via moving offset, so
+  bots that are admins of busy channels can't flood the queue) -> bot
+  `copyMessage(DM -> owner, protect_content=True)` -> bot deletes DM copy.
+  `_flood_safe` sleeps through FloodWait; per-bot asyncio.Lock serializes
+  deliveries; resolved peers and session account id cached in-process.
+- `stream_routes.py` `/api/telegram/{token}`: no more main-bot BIN copy, no
+  acquire/release — a single `deliver_via_dm_relay` call.
+- Live verified (pyrofork 2.3.69 restored after pyromod pulled vanilla
+  pyrogram 2.0.106): access code 3HMGK6GMRA, video BIN msg 1628310
+  (Approach_to_differentiating_lesions_brainstem, 50MB), bot @Sudhrbnzodus_bot
+  -> owner 6147509071. Delivered 2x back-to-back, no FloodWait, no admin ops,
+  DM clean afterwards, bad code -> 403.
+- Deployment: VPS just needs updated code + USER_SESSION_STRING; bots no longer
+  need to be admins anywhere.

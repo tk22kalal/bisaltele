@@ -13,13 +13,19 @@ cd /app && ./.venv/bin/python -m biisal
 ## Telegram-delivery test data (live)
 - Endpoint: `GET http://127.0.0.1:8899/api/telegram/{token}?access_code={code}`
 - Valid temp token (in Mongo temp_files): `VhkJDs-2a_XjirHVo1-fkg`
-- Valid access code (Supabase, active): `VLT5FHQARL` (belongs to user 498b007b who has bot 8993867611 configured; older code AKAVLZ6SK3 has expired via 24h TTL)
+  (msg 309278 Bates video) and `wLhCaAHWKNDRkAQjQwtHFQ` (BIN msg 1628310,
+  "Approach to differentiating lesions brainstem", domain webx)
+- Valid access codes (Supabase, active): `VLT5FHQARL` (user 498b007b, bot
+  8993867611) and `3HMGK6GMRA` (user d014beb9, bot @Sudhrbnzodus_bot
+  8815264788:AAFqBR0PVFrfYLce2YOGpCs-2GHeO9I1-Ik, owner chat 6147509071)
 - Recipient user bot: @Sndnndnnd_bot (token 8993867611:...) — already a manual admin
   of BIN_CHANNEL, owner @MichaelAnderson266 (id 8495837104) has /start-ed it.
 - Expected success JSON: {"success": true, "message": "Video sent to your Telegram bot.", ...}
 - Invalid/missing access_code -> HTTP 403.
 
-## Known constraint
-- Auto promote/demote (admin rotation) needs the USER_SESSION_STRING account to be
-  >24h old (Telegram FRESH_CHANGE_ADMINS_FORBIDDEN). Until then only bots already
-  admin of BIN_CHANNEL (like @Sndnndnnd_bot) can be tested end-to-end.
+## DM-relay (2026-09) — admin rotation REMOVED
+- Delivery no longer promotes/demotes user bots. User session copies the source
+  message into the bot's DM; the bot copies it to its owner (protect_content ON)
+  and deletes the DM copy. No admin cap, no fresh-session constraint.
+- Verified live with code 3HMGK6GMRA + video 1628310: delivered twice, zero
+  FloodWait, DM left clean.

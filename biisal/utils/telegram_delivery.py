@@ -1,14 +1,13 @@
-"""Personal-bot delivery: hand a BIN_CHANNEL message to the user's own bot.
+"""Personal-bot delivery via DM-relay (no admin rights needed anywhere).
 
 Flow (see /api/telegram/{token} in stream_routes.py):
-  1. Resolve the access_code -> user's bot token (+ optional saved chat id) from
-     Supabase through a SECURITY DEFINER RPC (anon key cannot read tables).
-  2. Make the user's bot a full admin of BIN_CHANNEL (once) using a Telegram
-     USER session, because a bot cannot add/promote another bot via Bot API.
-  3. The main bot copies the video from DB_CHANNEL into BIN_CHANNEL (done by the
-     route, exactly like the Web/WebX path).
-  4. The user's own bot copies that BIN_CHANNEL message to the user with
-     protect_content=ON, via the Telegram Bot HTTP API.
+  1. Resolve the access_code -> user's bot token (+ optional saved chat id).
+  2. A Telegram USER session copies the DB_CHANNEL message straight into the
+     user's bot DM — one plain copy op. The bot never touches DB_CHANNEL or
+     BIN_CHANNEL, so both stay anonymous to it, and no admin slot is used
+     (no 50-admin cap, no promote/demote churn, no session rate-limit storm).
+  3. The bot picks the message up via getUpdates, copies it to its owner with
+     protect_content=ON, then deletes the DM copy.
 """
 
 import os
@@ -18,9 +17,7 @@ import logging
 
 import aiohttp
 from pyrogram import Client
-from pyrogram.types import ChatPrivileges
-from pyrogram.enums import ChatMemberStatus
-from pyrogram.errors import UserNotParticipant, RPCError
+from pyrogram.errors import FloodWait, RPCError
 
 from biisal.vars import Var
 
@@ -31,22 +28,15 @@ SUPABASE_KEY = os.getenv("SUPABASE_KEY", "")
 
 _TG_API = "https://api.telegram.org"
 
-# One shared user-account session used only to promote/demote user bots in BIN_CHANNEL.
+# One shared user-account session used only to copy the source message into
+# each user's bot DM.
 _user_client: Client | None = None
 _user_client_lock = asyncio.Lock()
+_session_account_id: int | None = None
+_peer_cache: dict = {}          # bot_id -> resolved MTProto peer (per process)
+_delivery_locks: dict = {}      # bot_id -> asyncio.Lock (serialize per bot)
 
-# Telegram channels allow at most 50 admins total (bots included). We rotate:
-# promote the user's bot -> deliver -> demote it. MAX_BIN_ADMIN_BOTS bounds how
-# many user bots may hold admin at once, leaving headroom for real admins.
-MAX_BIN_ADMIN_BOTS = 45
-_STALE_ADMIN_SECONDS = 15 * 60          # safety-net demote for stragglers
 _DELETE_AFTER_SECONDS = 24 * 60 * 60    # best-effort auto-delete of delivered msg
-
-_admin_semaphore = asyncio.Semaphore(MAX_BIN_ADMIN_BOTS)
-# bot_id -> {"peer": str|int, "ts": float}  (bots WE promoted and must demote)
-_promoted_registry: dict = {}
-_registry_lock = asyncio.Lock()
-_sweeper_started = False
 
 
 # ── Supabase helpers (RPC only, matches supabase_quota pattern) ───────────────
@@ -121,12 +111,29 @@ async def get_bot_identity(bot_token: str):
     return me.get("id"), me.get("username")
 
 
+# Per-bot getUpdates cursor. Polling with a moving positive offset keeps each
+# bot's update queue drained, so bots that were (manually) added as admins of
+# busy channels can never flood the queue and hide the relayed DM message.
+_update_offsets: dict = {}
+
+
+async def _poll_updates(bot_token: str, limit: int = 100):
+    """Return pending updates and advance the per-bot cursor past them."""
+    offset = _update_offsets.get(bot_token)
+    params = {"limit": limit, "timeout": 0,
+              "offset": offset if offset else -limit}
+    data = await _bot_api(bot_token, "getUpdates", params)
+    updates = data.get("result", []) if data.get("ok") else []
+    if updates:
+        _update_offsets[bot_token] = updates[-1]["update_id"] + 1
+    elif not data.get("ok"):
+        logger.warning("getUpdates failed: %s", data.get("description"))
+    return updates
+
+
 async def resolve_owner_chat_id(bot_token: str):
     """Discover who /start'd the user's bot via getUpdates (last messager)."""
-    data = await _bot_api(bot_token, "getUpdates", {"limit": 100, "timeout": 0})
-    if not data.get("ok"):
-        return None
-    for update in reversed(data.get("result", [])):
+    for update in reversed(await _poll_updates(bot_token)):
         msg = update.get("message") or update.get("my_chat_member") or {}
         chat = msg.get("chat") or {}
         if chat.get("type") == "private" and chat.get("id"):
@@ -134,26 +141,8 @@ async def resolve_owner_chat_id(bot_token: str):
     return None
 
 
-async def deliver_via_user_bot(bot_token: str, chat_id, bin_message_id: int, caption: str | None):
-    """Copy the BIN_CHANNEL message into the user's chat with protect_content ON.
-
-    Returns (True, delivered_message_id) or (False, error_text)."""
-    params = {
-        "chat_id": chat_id,
-        "from_chat_id": Var.BIN_CHANNEL,
-        "message_id": bin_message_id,
-        "protect_content": True,
-    }
-    if caption:
-        params["caption"] = caption[:1024]
-    data = await _bot_api(bot_token, "copyMessage", params)
-    if not data.get("ok"):
-        return False, data.get("description", "Telegram delivery failed")
-    return True, (data.get("result") or {}).get("message_id")
-
-
 async def delete_user_message(bot_token: str, chat_id, message_id: int):
-    """Best-effort delete of a message the user's bot previously sent."""
+    """Best-effort delete of a message the user's bot can access."""
     try:
         await _bot_api(bot_token, "deleteMessage", {"chat_id": chat_id, "message_id": message_id})
     except Exception as error:  # noqa: BLE001
@@ -174,7 +163,7 @@ def schedule_message_deletion(bot_token: str, chat_id, message_id, delay: int = 
     asyncio.create_task(_task())
 
 
-# ── User session (promotes the user's bot into BIN_CHANNEL) ───────────────────
+# ── User session (copies the source message into each bot's DM) ───────────────
 
 async def _get_user_client():
     global _user_client
@@ -187,7 +176,7 @@ async def _get_user_client():
         if not session_string:
             return None
         client = Client(
-            name="bin_promoter",
+            name="dm_relay",
             api_id=Var.API_ID,
             api_hash=Var.API_HASH,
             session_string=session_string,
@@ -196,141 +185,113 @@ async def _get_user_client():
         )
         await client.start()
         _user_client = client
-        logger.info("User session for BIN_CHANNEL promotion started")
-        return _user_client
+        logger.info("User session for DM-relay delivery started")
+        return client
 
 
-_FULL_PRIVILEGES = ChatPrivileges(
-    can_manage_chat=True,
-    can_delete_messages=True,
-    can_manage_video_chats=True,
-    can_restrict_members=True,
-    can_promote_members=True,
-    can_change_info=True,
-    can_post_messages=True,
-    can_edit_messages=True,
-    can_invite_users=True,
-    can_pin_messages=True,
-    is_anonymous=False,
-)
-_NO_PRIVILEGES = ChatPrivileges(
-    can_manage_chat=False,
-    can_delete_messages=False,
-    can_manage_video_chats=False,
-    can_restrict_members=False,
-    can_promote_members=False,
-    can_change_info=False,
-    can_post_messages=False,
-    can_edit_messages=False,
-    can_invite_users=False,
-    can_pin_messages=False,
-    is_anonymous=False,
-)
-
-
-def _ensure_sweeper():
-    """Start the safety-net sweeper once, on the running loop."""
-    global _sweeper_started
-    if _sweeper_started:
-        return
-    _sweeper_started = True
-    asyncio.create_task(_sweep_stale_admins())
-
-
-async def _sweep_stale_admins():
-    """Demote any bot WE promoted that lingered past the stale window."""
+async def _flood_safe(factory, what="telegram call"):
+    """Retry a session call, sleeping through Telegram FLOOD_WAIT."""
     while True:
-        await asyncio.sleep(60)
-        now = time.time()
-        stale = []
-        async with _registry_lock:
-            for bid, info in list(_promoted_registry.items()):
-                if now - info["ts"] > _STALE_ADMIN_SECONDS:
-                    stale.append((bid, info["peer"]))
-        for bot_id, peer in stale:
-            logger.warning("Sweeper demoting stale admin bot %s", bot_id)
-            await release_bin_admin(bot_id, peer)
+        try:
+            return await factory()
+        except FloodWait as error:
+            logger.warning("FloodWait %ss on %s", error.value, what)
+            await asyncio.sleep(error.value + 2)
 
 
-async def acquire_bin_admin(bot_token: str):
-    """Make the user's bot a full admin of BIN_CHANNEL for one delivery.
+async def _resolve_bot_peer(client: Client, bot_id: int, username: str | None):
+    if bot_id in _peer_cache:
+        return _peer_cache[bot_id]
+    peer = await _flood_safe(lambda: client.resolve_peer(username or bot_id),
+                             f"resolve bot peer {bot_id}")
+    _peer_cache[bot_id] = peer
+    return peer
 
-    Returns (status, bot_id, peer, error):
-      status == "promoted" -> we promoted it; caller MUST release_bin_admin().
-      status == "already"  -> pre-existing admin (manual); do NOT release.
-      status == "error"    -> error set, bot_id/peer None.
-    """
+
+async def _get_session_account_id(client: Client) -> int:
+    global _session_account_id
+    if _session_account_id is None:
+        me = await client.get_me()
+        _session_account_id = me.id
+    return _session_account_id
+
+
+def _delivery_lock(bot_id: int) -> asyncio.Lock:
+    lock = _delivery_locks.get(bot_id)
+    if lock is None:
+        lock = asyncio.Lock()
+        _delivery_locks[bot_id] = lock
+    return lock
+
+
+async def _find_dm_message(bot_token: str, account_id: int, attempts: int = 6):
+    """Poll the bot's updates for the DM message the session just relayed.
+
+    The cursor was advanced past the backlog just before the relay copy, so
+    only fresh updates arrive here."""
+    for _ in range(attempts):
+        found = None
+        for upd in await _poll_updates(bot_token):
+            msg = upd.get("message") or {}
+            chat = msg.get("chat") or {}
+            if chat.get("type") == "private" and chat.get("id") == account_id:
+                found = msg.get("message_id") or found
+        if found:
+            return found
+        await asyncio.sleep(1.5)
+    return None
+
+
+async def deliver_via_dm_relay(bot_token: str, chat_id, from_chat_id,
+                               message_id: int, caption: str | None):
+    """Relay source message -> bot DM (user session) -> owner (bot, protected).
+
+    Returns (True, delivered_message_id) or (False, error_text)."""
     bot_id, username = await get_bot_identity(bot_token)
     if not bot_id:
-        return "error", None, None, "Invalid bot token."
+        return False, "Invalid bot token."
 
     client = await _get_user_client()
     if client is None:
-        return "error", None, None, "Server is missing USER_SESSION_STRING for bot promotion."
+        return False, "Server is missing USER_SESSION_STRING for delivery."
 
-    _ensure_sweeper()
-    peer = f"@{username}" if username else bot_id
-
-    # Already an admin (e.g. added manually during the 24h fresh-session window)?
-    # Reuse it and do not manage its lifecycle.
-    try:
-        member = await client.get_chat_member(Var.BIN_CHANNEL, peer)
-        if member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER):
-            return "already", bot_id, peer, None
-    except UserNotParticipant:
-        pass
-    except RPCError:
-        pass
-
-    # Reserve one of the 45 admin slots (wait briefly if the channel is full).
-    try:
-        await asyncio.wait_for(_admin_semaphore.acquire(), timeout=30)
-    except asyncio.TimeoutError:
-        return "error", None, None, (
-            "The delivery service is busy right now. Please try again shortly."
-        )
-
-    try:
-        await client.promote_chat_member(Var.BIN_CHANNEL, peer, privileges=_FULL_PRIVILEGES)
-    except UserNotParticipant:
+    async with _delivery_lock(bot_id):
         try:
-            await client.add_chat_members(Var.BIN_CHANNEL, peer)
-            await client.promote_chat_member(Var.BIN_CHANNEL, peer, privileges=_FULL_PRIVILEGES)
+            await _resolve_bot_peer(client, bot_id, username)
         except RPCError as error:
-            _admin_semaphore.release()
-            logger.error("Failed to add+promote bot %s: %s", bot_id, error)
-            return "error", None, None, "Could not add the bot to BIN_CHANNEL."
-    except RPCError as error:
-        text = str(error)
-        if "not modified" in text.lower():
-            pass  # already has these rights
-        elif "FRESH_CHANGE_ADMINS_FORBIDDEN" in text:
-            _admin_semaphore.release()
-            logger.error("Promote blocked (fresh session) for bot %s: %s", bot_id, error)
-            return "error", None, None, (
-                "The promoter account was logged in too recently. Add the bot to "
-                "BIN_CHANNEL as admin manually once, or retry ~24h after login."
+            logger.error("Cannot resolve bot %s: %s", bot_id, error)
+            return False, "Could not reach your bot from the delivery service."
+
+        account_id = await _get_session_account_id(client)
+
+        # Drain the bot's backlog so only the fresh DM message matches after.
+        await _poll_updates(bot_token)
+
+        try:
+            await _flood_safe(
+                lambda: client.copy_message(
+                    chat_id=bot_id,
+                    from_chat_id=from_chat_id,
+                    message_id=message_id,
+                    caption=(caption[:1024] if caption else None),
+                ),
+                f"copy to bot DM {bot_id}",
             )
-        else:
-            _admin_semaphore.release()
-            logger.error("Failed to promote bot %s: %s", bot_id, error)
-            return "error", None, None, "Could not grant admin rights to the bot in BIN_CHANNEL."
-
-    async with _registry_lock:
-        _promoted_registry[bot_id] = {"peer": peer, "ts": time.time()}
-    return "promoted", bot_id, peer, None
-
-
-async def release_bin_admin(bot_id: int, peer):
-    """Demote (and thereby remove) a bot we previously promoted; free its slot."""
-    async with _registry_lock:
-        present = _promoted_registry.pop(bot_id, None)
-    if present is None:
-        return  # already released or never ours
-    client = await _get_user_client()
-    if client is not None:
-        try:
-            await client.promote_chat_member(Var.BIN_CHANNEL, peer, privileges=_NO_PRIVILEGES)
         except RPCError as error:
-            logger.error("Failed to demote bot %s: %s", bot_id, error)
-    _admin_semaphore.release()
+            logger.error("DM-relay copy failed for bot %s: %s", bot_id, error)
+            return False, "Could not relay the file to your bot. Please try again."
+
+        dm_message_id = await _find_dm_message(bot_token, account_id)
+        if not dm_message_id:
+            return False, "Your bot did not receive the file. Please try again."
+
+        data = await _bot_api(bot_token, "copyMessage", {
+            "chat_id": chat_id,
+            "from_chat_id": account_id,
+            "message_id": dm_message_id,
+            "protect_content": True,
+        })
+        await delete_user_message(bot_token, account_id, dm_message_id)
+        if not data.get("ok"):
+            return False, data.get("description", "Telegram delivery failed")
+        return True, (data.get("result") or {}).get("message_id")
