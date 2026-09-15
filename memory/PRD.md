@@ -131,3 +131,17 @@ test user-bot @streaammmmvps_bot (MULTI_TOKEN1). Reports:
   DM clean afterwards, bad code -> 403.
 - Deployment: VPS just needs updated code + USER_SESSION_STRING; bots no longer
   need to be admins anywhere.
+
+## DM-relay bugfix — DB_CHANNEL forwards-restricted (2026-09)
+- Symptom on VPS: "Could not relay the file to your bot. Please try again."
+- Root cause: DB_CHANNEL ("DB AIPLEX STREAM") has *Restrict saving content* ON,
+  so the plain USER session copying directly from DB_CHANNEL hit
+  CHAT_FORWARDS_RESTRICTED (400). The earlier passing test had used a source
+  message already sitting in BIN_CHANNEL (unrestricted), masking the bug.
+- Fix: route restored to two hops — main bot (admin of DB + BIN, so exempt from
+  the restriction) copies DB_CHANNEL -> BIN_CHANNEL, then the session relays the
+  BIN copy -> bot DM. BIN_CHANNEL is not forward-restricted, so the session copy
+  succeeds. User bots still need NO admin rights anywhere.
+- Verified: token VhkJDs-2a_XjirHVo1-fkg (source in restricted DB_CHANNEL) +
+  code 3HMGK6GMRA -> success; back-to-back deliveries clean the bot DM (count
+  stays 1, not growing), zero FloodWait.

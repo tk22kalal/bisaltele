@@ -598,11 +598,53 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 content_type='application/json'
             )
 
+        # The source channel (DB_CHANNEL) has "restrict saving content" ON, so a
+        # plain account cannot copy directly out of it. The main bot IS admin of
+        # DB_CHANNEL and BIN_CHANNEL, so it copies the message into BIN_CHANNEL
+        # (an unrestricted channel); the session then relays that BIN copy into
+        # the user's bot DM. No user bot ever needs admin rights.
+        original_msg = await StreamBot.get_messages(temp_data['from_chat_id'], temp_data['message_id'])
+        if not original_msg:
+            return web.json_response(
+                {"success": False, "error": "Original message not found"},
+                status=404,
+                content_type='application/json'
+            )
+
+        log_msg = None
+        for attempt in range(3):
+            try:
+                log_msg = await original_msg.copy(
+                    chat_id=Var.BIN_CHANNEL,
+                    caption=temp_data['caption'][:1024],
+                    parse_mode=ParseMode.HTML,
+                )
+                break
+            except FloodWait as e:
+                if attempt < 2:
+                    await asyncio.sleep(e.value)
+                else:
+                    return web.json_response(
+                        {"success": False, "error": "Server is busy. Please try again in a few seconds."},
+                        status=429,
+                        content_type='application/json'
+                    )
+            except Exception as copy_error:
+                logging.error(f"Error copying to BIN (attempt {attempt + 1}): {copy_error}")
+                if attempt < 2:
+                    await asyncio.sleep(2)
+        if not log_msg:
+            return web.json_response(
+                {"success": False, "error": "Failed to process file. Please try again."},
+                status=500,
+                content_type='application/json'
+            )
+
         delivered, deliver_result = await telegram_delivery.deliver_via_dm_relay(
             bot_token=config["bot_token"],
             chat_id=chat_id,
-            from_chat_id=temp_data['from_chat_id'],
-            message_id=temp_data['message_id'],
+            from_chat_id=Var.BIN_CHANNEL,
+            message_id=log_msg.id,
             caption=temp_data.get('caption'),
         )
 

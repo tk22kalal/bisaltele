@@ -1,12 +1,15 @@
-"""Personal-bot delivery via DM-relay (no admin rights needed anywhere).
+"""Personal-bot delivery via DM-relay (no admin rights needed for user bots).
 
 Flow (see /api/telegram/{token} in stream_routes.py):
   1. Resolve the access_code -> user's bot token (+ optional saved chat id).
-  2. A Telegram USER session copies the DB_CHANNEL message straight into the
-     user's bot DM — one plain copy op. The bot never touches DB_CHANNEL or
-     BIN_CHANNEL, so both stay anonymous to it, and no admin slot is used
-     (no 50-admin cap, no promote/demote churn, no session rate-limit storm).
-  3. The bot picks the message up via getUpdates, copies it to its owner with
+  2. The main bot copies the DB_CHANNEL message into BIN_CHANNEL (DB_CHANNEL has
+     "restrict saving content" ON, so only the bot -- admin of both channels --
+     can copy out of it; the fresh BIN copy is unrestricted).
+  3. A Telegram USER session copies that BIN message straight into the user's
+     bot DM -- one plain copy op. The bot never becomes admin of any channel, so
+     there is no 50-admin cap, no promote/demote churn, no session rate-limit
+     storm, and both channels stay anonymous to the user's bot.
+  4. The bot picks the message up via getUpdates, copies it to its owner with
      protect_content=ON, then deletes the DM copy.
 """
 
