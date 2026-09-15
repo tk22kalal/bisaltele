@@ -65,6 +65,10 @@ class Var(object):
     RECAPTCHA_SITE_KEY = str(getenv('RECAPTCHA_SITE_KEY', '6LdCK_crAAAAAD702QCUelFDiZPr5wqL-3qbgk2u'))
     RECAPTCHA_SECRET_KEY = str(getenv('RECAPTCHA_SECRET_KEY', '6LdCK_crAAAAAMiFPR9Pk5u3Zvnj6G8rNEORAsEV'))
 
+    AUTODEL_DB_URI = str(getenv('AUTODEL_DB_URI', ''))
+    AUTODEL_MAX_LECTURES = int(getenv('AUTODEL_MAX_LECTURES', '10'))
+    AUTODEL_TTL_HOURS = int(getenv('AUTODEL_TTL_HOURS', '24'))
+
     @classmethod
     def get_fqdn(cls):
         if cls.SERVE_DOMAIN == 'web':
