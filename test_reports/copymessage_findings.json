@@ -1,0 +1,42 @@
+{
+  "sanity mainbot in BIN_CHANNEL": {
+    "ok": true,
+    "detail": "administrator"
+  },
+  "sanity mainbot in DB_CHANNEL": {
+    "ok": true,
+    "detail": "administrator"
+  },
+  "T0 supergroup setup": {
+    "ok": true,
+    "detail": "sg_id=-1003726336754 msg_id=4"
+  },
+  "T1a add bot to channel as member": {
+    "ok": false,
+    "detail": "Telegram says: [400 USER_BOT] (caused by \"channels.InviteToChannel\") Pyrogram 2.3.69 thinks: Bots in channels can only be administrators, not members."
+  },
+  "T2a bot getChat on supergroup": {
+    "ok": true,
+    "detail": "ok"
+  },
+  "T2b copyMessage from supergroup (bot=member, protect_content)": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  },
+  "T2c copyMessage without protect (privacy-mode check)": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  },
+  "T4a main bot copyMessage DB->SG": {
+    "ok": true,
+    "detail": "copied msg 309397"
+  },
+  "T4b user bot copyMessage SG->user (protect_content)": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  },
+  "T3 copyMessage from PROTECTED supergroup": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  }
+}

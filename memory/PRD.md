@@ -83,3 +83,33 @@ Frontend PWA (separate repo, user-owned): sunday2212/WEBREPLITX5 stream-player.h
   > ~24h (FRESH_CHANGE_ADMINS_FORBIDDEN). Until then, add each user bot to
   BIN_CHANNEL as admin manually. Verified: token 8952076926 (@Ejehfbdbsnsb_bot)
   is valid but auto-promote is blocked while the session is fresh.
+
+## copyMessage-without-admin experiments (2026-09) — scripts test_copymessage*.py
+Live tests with USER_SESSION account @D1234abcesb, main bot @streamtedt_bot,
+test user-bot @streaammmmvps_bot (MULTI_TOKEN1). Reports:
+/app/test_reports/copymessage_findings{,_r2,_r3}.json
+
+- FAIL T1: bots can NEVER be plain channel members ("Bots in channels can only
+  be administrators, not members", 400 USER_BOT). Channel-member idea is dead.
+- FAIL: copyMessage from a supergroup as plain member (privacy ON) -> "message
+  to copy not found". Bots can only copy messages they have RECEIVED in their
+  own update stream (or sent themselves, T8d PASS).
+- FAIL T7: bots cannot self-join groups via invite link (BOT_METHOD_INVALID,
+  messages.ImportChatInvite). A user must add them.
+- PASS: main bot copies DB_CHANNEL -> supergroup as a plain member.
+- PASS T6: main bot can PROMOTE/DEMOTE user bots in a supergroup via pure Bot
+  API (no user session needed).
+- PASS T8e/f: a bot that is ADMIN in a supergroup receives all subsequent
+  messages and can copyMessage them even with privacy mode ON (messages must be
+  sent AFTER promotion).
+- PASS T9 (WINNER — DM-relay): user session copies BIN_CHANNEL msg into the
+  user bot's DM (1 plain MTProto copy op, NO admin anywhere) -> bot finds it
+  via getUpdates -> bot copyMessage(DM -> owner, protect_content=True) -> works.
+  Bot can deleteMessage the DM copy afterwards (bots may delete any message in
+  their own private chats).
+- Recommended next implementation: replace acquire/release_bin_admin with
+  DM-relay (session copy -> getUpdates -> copyMessage -> deleteMessage).
+  Removes 50-admin cap, admin-op churn, sweeper; 1 session op per delivery
+  instead of 2 privileged ones. Risks: space session sends (FloodWait/PEER_FLOOD
+  if DMing many new bots), getUpdates conflicts with webhooks on user bots,
+  DM copy must stay unprotected (protected source can't be re-copied).

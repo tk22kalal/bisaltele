@@ -1,0 +1,54 @@
+{
+  "T8a updates received by privacy bot": {
+    "ok": true,
+    "detail": "seen=[(1628177, -1002133410746, '54. NASOPHARYNGEAL CARCINOMA Yw.mp4'), (1628178, -1002133410746, 'Preventive & Social Medicine (Quick Revi'), (1628179, -1002133410746, '21. Rapid Revision Part 3'), (1628180, -1002133410746, 'Preventive & Social Medicine (Quick Revi'), (1628181, -1002133410746, '22. Rapid Revision Part 4'), (1628182, -1002133410746, 'Anesthesia Cylinders yw12.mp4 \u2728Equality '), (16"
+  },
+  "T8a1 plain msg in updates": {
+    "ok": true,
+    "detail": "plain_id=3"
+  },
+  "T8a2 mention msg in updates": {
+    "ok": false,
+    "detail": "mention_id=4"
+  },
+  "T8b copy PLAIN msg after getUpdates": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  },
+  "T8c copy MENTIONED msg after getUpdates": {
+    "ok": false,
+    "detail": "Bad Request: message to copy not found"
+  },
+  "T8d copy bot's OWN msg": {
+    "ok": true,
+    "detail": "copied"
+  },
+  "T8e msg received while admin (privacy still ON)": {
+    "ok": true,
+    "detail": "admin_msg_id=7"
+  },
+  "T8f copy msg as group ADMIN": {
+    "ok": true,
+    "detail": "copied"
+  },
+  "T9a latest BIN_CHANNEL msg": {
+    "ok": true,
+    "detail": "msg_id=1628231"
+  },
+  "T9b session copy BIN->bot DM": {
+    "ok": true,
+    "detail": "dm_msg_id=174878"
+  },
+  "T9c bot received DM in updates": {
+    "ok": true,
+    "detail": "dm_msg_id=2"
+  },
+  "T9d bot copyMessage from its DM (protect_content)": {
+    "ok": true,
+    "detail": "copied"
+  },
+  "T7 bot self-join via invite link": {
+    "ok": false,
+    "detail": "Telegram says: [400 BOT_METHOD_INVALID] (caused by \"messages.ImportChatInvite\") Pyrogram 2.3.69 thinks: The method can't be used by bots"
+  }
+}
