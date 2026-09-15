@@ -14,6 +14,7 @@ from aiohttp import web
 from .server import web_server
 from .utils.keepalive import ping_server
 from biisal.bot.clients import initialize_clients
+from biisal.utils import autodelete
 
 LOGO = r"""
  ____ ___ ___ ____    _    _     
@@ -66,6 +67,7 @@ async def start_services():
         print()
         asyncio.create_task(ping_server())
     print('-------------------- Initalizing Web Server -------------------------')
+    autodelete.start_sweeper()
     app = web.AppRunner(await web_server())
     await app.setup()
     bind_address = "0.0.0.0" if Var.ON_HEROKU else Var.BIND_ADRESS
