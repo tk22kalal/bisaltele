@@ -25,7 +25,7 @@ from biisal.utils.file_properties import get_name, get_hash, get_media_from_mess
 from biisal.utils.human_readable import humanbytes
 from biisal.vars import Var
 from biisal.utils.supabase_quota import supabase_quota
-from biisal.utils import telegram_delivery
+from biisal.utils import telegram_delivery, autodelete
 
 stream_log = logging.getLogger("stream.routes")
 
@@ -655,9 +655,11 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 content_type='application/json'
             )
 
-        # Best-effort: remove the delivered video from the user's bot after 24h.
-        telegram_delivery.schedule_message_deletion(
-            config["bot_token"], chat_id, deliver_result
+        # Record for restart-proof auto-delete (sliding window + TTL sweeper).
+        bot_id, _ = await telegram_delivery.get_bot_identity(config["bot_token"])
+        await autodelete.record_delivery(
+            config["bot_token"], bot_id, chat_id, deliver_result,
+            temp_data.get('file_name'),
         )
 
         return web.json_response(
