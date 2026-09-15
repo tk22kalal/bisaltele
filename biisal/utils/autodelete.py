@@ -55,20 +55,37 @@ async def _ensure_index():
     _index_ensured = True
 
 
-async def _delete_recorded(doc: dict):
-    """Delete the Telegram message, then its Mongo record."""
+async def _delete_recorded(doc: dict) -> bool:
+    """Delete the Telegram message, then its Mongo record.
+
+    Returns True if the record was cleared (message gone or permanently
+    ungettable). On a transient failure the record is KEPT so a later delivery
+    or the sweeper can retry — this makes eviction self-healing across the
+    hourly VPS restarts."""
+    description = ""
+    ok = False
     try:
         data = await _bot_api(doc["bot_token"], "deleteMessage", {
             "chat_id": doc["chat_id"],
             "message_id": doc["message_id"],
         })
-        if not data.get("ok"):
-            logger.warning("Autodelete deleteMessage failed for bot %s msg %s: %s",
-                           doc.get("bot_id"), doc["message_id"],
-                           data.get("description"))
+        ok = data.get("ok", False)
+        description = (data.get("description") or "").lower()
     except Exception as error:  # noqa: BLE001
+        description = str(error).lower()
         logger.warning("Autodelete deleteMessage error: %s", error)
+
+    # "message to delete not found" / "message can't be deleted" (older than
+    # 48h) are permanent — the message is effectively gone or unrecoverable, so
+    # stop tracking it. Anything else is transient: keep the record and retry.
+    permanent = ok or "not found" in description or "can't be deleted" in description \
+        or "message identifier is not specified" in description
+    if not ok and not permanent:
+        logger.warning("Autodelete keeping record for retry (bot %s msg %s): %s",
+                       doc.get("bot_id"), doc["message_id"], description)
+        return False
     await _col.delete_one({"_id": doc["_id"]})
+    return True
 
 
 async def record_delivery(bot_token: str, bot_id, chat_id, message_id: int,
@@ -104,22 +121,57 @@ async def count_lectures(bot_token: str) -> int:
     return await _col.count_documents({"bot_token": bot_token})
 
 
-async def _sweeper():
-    while True:
-        await asyncio.sleep(_SWEEP_INTERVAL)
-        ttl_hours = Var.AUTODEL_TTL_HOURS
-        if _col is None or ttl_hours <= 0:
-            continue
+async def _sweep_once():
+    """One reconciliation pass: enforce both the sliding window and the TTL.
+
+    Runs the same eviction the delivery path does, so any deletes interrupted
+    by an hourly VPS restart are retried here. Self-healing and idempotent."""
+    if _col is None:
+        return
+    max_keep = Var.AUTODEL_MAX_LECTURES
+    ttl_hours = Var.AUTODEL_TTL_HOURS
+
+    # 1) Sliding-window catch-up: any bot holding more than max_keep lectures.
+    if max_keep > 0:
+        try:
+            bot_ids = await _col.distinct("bot_token")
+        except Exception as error:  # noqa: BLE001
+            logger.error("Autodelete sweeper distinct failed: %s", error)
+            bot_ids = []
+        for bot_token in bot_ids:
+            async with _lock(bot_token):
+                stale = await _col.find(
+                    {"bot_token": bot_token}
+                ).sort("delivered_at", -1).skip(max_keep).to_list(length=200)
+                for doc in stale:
+                    logger.info("Sweeper window: deleting lecture %s (msg %s) for bot %s",
+                                doc.get("file_name"), doc["message_id"], doc.get("bot_id"))
+                    await _delete_recorded(doc)
+
+    # 2) TTL: delete anything older than the TTL regardless of count.
+    if ttl_hours > 0:
         cutoff = time.time() - ttl_hours * 3600
         try:
-            stale = await _col.find({"delivered_at": {"$lt": cutoff}}).to_list(length=200)
+            stale = await _col.find({"delivered_at": {"$lt": cutoff}}).to_list(length=500)
         except Exception as error:  # noqa: BLE001
-            logger.error("Autodelete sweeper query failed: %s", error)
-            continue
+            logger.error("Autodelete sweeper TTL query failed: %s", error)
+            stale = []
         for doc in stale:
             logger.info("TTL: deleting lecture %s (msg %s) for bot %s",
                         doc.get("file_name"), doc["message_id"], doc.get("bot_id"))
             await _delete_recorded(doc)
+
+
+async def _sweeper():
+    # First pass shortly after startup — the VPS restarts hourly, so we cannot
+    # wait a full interval before reconciling.
+    await asyncio.sleep(30)
+    while True:
+        try:
+            await _sweep_once()
+        except Exception as error:  # noqa: BLE001
+            logger.error("Autodelete sweep pass failed: %s", error)
+        await asyncio.sleep(_SWEEP_INTERVAL)
 
 
 def start_sweeper():
