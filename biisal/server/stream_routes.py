@@ -25,7 +25,7 @@ from biisal.utils.file_properties import get_name, get_hash, get_media_from_mess
 from biisal.utils.human_readable import humanbytes
 from biisal.vars import Var
 from biisal.utils.supabase_quota import supabase_quota
-from biisal.utils import telegram_delivery, autodelete
+from biisal.utils import telegram_delivery, autodelete, daily_quota
 
 stream_log = logging.getLogger("stream.routes")
 
@@ -557,7 +557,7 @@ async def deliver_to_user_bot_handler(request: web.Request):
     try:
         token = request.match_info["token"]
         access_code = request.rel_url.query.get("access_code", "").strip()
-        _, access_error = await supabase_quota.validate_access_code(access_code)
+        user_id, access_error = await supabase_quota.validate_access_code(access_code)
         if access_error:
             return web.json_response(
                 {"success": False, "error": access_error["message"]},
@@ -640,6 +640,29 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 content_type='application/json'
             )
 
+        # Daily Telegram cap: at most TELEGRAM_DAILY_LECTURE_LIMIT DISTINCT
+        # lectures per user per rolling 24h. Re-fetching the same lecture is
+        # free. Identity is the file's unique id (tamper-proof).
+        tg_lecture_id = hashlib.sha256(
+            f"lecture:{temp_data.get('file_unique_id') or token}".encode()
+        ).hexdigest()
+        tg_allowed, tg_reason, tg_created = await daily_quota.claim(
+            user_id, "telegram", tg_lecture_id, Var.TELEGRAM_DAILY_LECTURE_LIMIT
+        )
+        if not tg_allowed:
+            return web.json_response(
+                {
+                    "success": False,
+                    "error": (
+                        f"Daily Telegram limit reached "
+                        f"({Var.TELEGRAM_DAILY_LECTURE_LIMIT} lectures per 24 hours). "
+                        "Please try again later."
+                    ),
+                },
+                status=429,
+                content_type='application/json',
+            )
+
         delivered, deliver_result = await telegram_delivery.deliver_via_dm_relay(
             bot_token=config["bot_token"],
             chat_id=chat_id,
@@ -649,13 +672,16 @@ async def deliver_to_user_bot_handler(request: web.Request):
         )
 
         if not delivered:
+            # Refund the slot only if THIS call first counted the lecture.
+            if tg_created:
+                await daily_quota.unclaim(user_id, "telegram", tg_lecture_id)
             return web.json_response(
                 {"success": False, "error": deliver_result},
                 status=502,
                 content_type='application/json'
             )
 
-        # Record for restart-proof auto-delete (sliding window + TTL sweeper).
+        # Record for restart-proof 24h auto-delete (TTL sweeper).
         bot_id, _ = await telegram_delivery.get_bot_identity(config["bot_token"])
         await autodelete.record_delivery(
             config["bot_token"], bot_id, chat_id, deliver_result,
@@ -904,10 +930,15 @@ async def media_streamer(request: web.Request, id: int, secure_hash: str):
     part_count = math.ceil((until_bytes + 1) / chunk_size) - math.floor(offset / chunk_size)
 
     if request.method != "HEAD":
+        # Count quota against the REAL file identity (server-derived), not the
+        # client-supplied lecture_key, so swapping the URL cannot bypass limits.
+        quota_lecture_id = hashlib.sha256(
+            f"lecture:{file_id.unique_id}".encode()
+        ).hexdigest()
         lease, quota_error = await supabase_quota.acquire(
             access_code,
             action,
-            lecture_key,
+            quota_lecture_id,
         )
         if quota_error:
             status = quota_error["status"]
