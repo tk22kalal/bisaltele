@@ -66,8 +66,9 @@ class Var(object):
     RECAPTCHA_SECRET_KEY = str(getenv('RECAPTCHA_SECRET_KEY', '6LdCK_crAAAAAMiFPR9Pk5u3Zvnj6G8rNEORAsEV'))
 
     AUTODEL_DB_URI = str(getenv('AUTODEL_DB_URI', ''))
-    AUTODEL_MAX_LECTURES = int(getenv('AUTODEL_MAX_LECTURES', '10'))
+    AUTODEL_MAX_LECTURES = int(getenv('AUTODEL_MAX_LECTURES', '0'))
     AUTODEL_TTL_HOURS = int(getenv('AUTODEL_TTL_HOURS', '24'))
+    TELEGRAM_DAILY_LECTURE_LIMIT = int(getenv('TELEGRAM_DAILY_LECTURE_LIMIT', '15'))
 
     @classmethod
     def get_fqdn(cls):
