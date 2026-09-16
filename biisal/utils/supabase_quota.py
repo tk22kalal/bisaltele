@@ -377,31 +377,31 @@ class SupabaseQuota:
             },
         )
         if error:
-            await self.release((user_id, action))
-            return None, {"status": 503, "message": error}
+            # Supabase claim is best-effort only; the authoritative daily
+            # distinct-lecture cap is enforced in MongoDB below.
+            logger.warning("Supabase claim_media_access unavailable: %s", error)
 
-        result = _first_object(result)
-        if not result or not result.get("allowed"):
+        # Authoritative, tamper-proof daily cap: DISTINCT lectures per user per
+        # rolling 24h, per action. `lecture_key` here is the server-derived
+        # file identity (see media_streamer / telegram route), so swapping the
+        # URL's lecture_key or id cannot bypass it.
+        from biisal.utils import daily_quota
+
+        limit = self.download_limit if action == "download" else self.stream_limit
+        allowed, reason, _created = await daily_quota.claim(
+            user_id, action, lecture_key, limit
+        )
+        if not allowed:
             await self.release((user_id, action))
-            reason = (result or {}).get("reason")
             if reason == "daily_limit":
                 return None, {
                     "status": 429,
                     "message": (
-                        f"Daily {action} limit reached. "
-                        "Please try again after the daily reset."
+                        f"Daily {action} limit reached "
+                        f"({limit} lectures per 24 hours). "
+                        "Please try again later."
                     ),
                 }
-            if (
-                self.allow_legacy_unbound_lectures
-                and reason in {"invalid_code", "bound_to_different_lecture"}
-            ):
-                logger.warning(
-                    "Allowing validated legacy access code without lecture binding "
-                    "for %s action",
-                    action,
-                )
-                return None, None
             return None, {
                 "status": 403,
                 "message": "This link is invalid or has expired.",
