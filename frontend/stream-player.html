@@ -9,7 +9,7 @@
     <!-- Theme must load before render to prevent flash -->
     <script src="./theme.js"></script>
     <script src="https://www.google.com/recaptcha/api.js" async defer></script>
-    
+
 <script src="./block.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="./supabase-config.js"></script>
@@ -306,6 +306,174 @@
             margin: 0 auto 1rem auto;
         }
 
+        /* ══════════════════════════════════════════════════════════════
+           ── SERVER STATUS CHECK BAR (above the player tabs) ──
+           ══════════════════════════════════════════════════════════════ */
+        .server-check {
+            background: #f1f7fc;
+            border: 1px solid #cfe3f3;
+            border-radius: 12px;
+            padding: .75rem .95rem;
+            margin-bottom: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: .75rem;
+            flex-wrap: wrap;
+        }
+        html:not([data-theme="light"]) .server-check {
+            background: rgba(34, 158, 217, 0.07);
+            border-color: rgba(34, 158, 217, 0.28);
+        }
+        .sc-info {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .88rem;
+            font-weight: 600;
+            color: #475569;
+            min-width: 0;
+        }
+        html:not([data-theme="light"]) .sc-info { color: #94a3b8; }
+        .sc-info i.sc-bolt { color: #2c5282; font-size: .95rem; }
+        html:not([data-theme="light"]) .sc-info i.sc-bolt { color: #63b3ed; }
+
+        .vps-dot {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #9aa5b1;
+            flex-shrink: 0;
+            transition: background .2s, box-shadow .2s;
+        }
+        .vps-dot.checking {
+            background: #f0a500;
+            animation: vpsPulse 1s ease-in-out infinite;
+        }
+        .vps-dot.online {
+            background: #16a34a;
+            box-shadow: 0 0 0 4px rgba(22, 163, 74, 0.18);
+        }
+        .vps-dot.offline {
+            background: #dc2626;
+            box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.18);
+        }
+        @keyframes vpsPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%      { opacity: .45; transform: scale(.8); }
+        }
+
+        #vpsStatus {
+            font-weight: 800;
+            font-size: .85rem;
+        }
+        #vpsStatus.checking { color: #a16207; }
+        #vpsStatus.online   { color: #15803d; }
+        #vpsStatus.offline  { color: #b91c1c; }
+        html:not([data-theme="light"]) #vpsStatus.checking { color: #f0c674; }
+        html:not([data-theme="light"]) #vpsStatus.online   { color: #3fb950; }
+        html:not([data-theme="light"]) #vpsStatus.offline  { color: #f87171; }
+
+        .vps-check-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: .45rem;
+            min-height: 38px;
+            padding: 0 16px;
+            border: 0;
+            border-radius: 9px;
+            background: #1c6e63;
+            color: #fff;
+            font-size: .85rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background .15s, transform .15s, opacity .15s;
+            flex-shrink: 0;
+        }
+        .vps-check-btn:hover:not(:disabled) {
+            background: #0e4a43;
+            transform: translateY(-1px);
+        }
+        .vps-check-btn:disabled {
+            opacity: .7;
+            cursor: progress;
+            transform: none;
+        }
+
+        /* ══════════════════════════════════════════════════════════════
+           ── STREAM 15s COUNTDOWN GATE ──
+           ══════════════════════════════════════════════════════════════ */
+        .stream-countdown {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 3rem 1rem;
+            text-align: center;
+            min-height: 320px;
+        }
+        .sc-ring {
+            position: relative;
+            width: 132px;
+            height: 132px;
+            margin-bottom: 1.25rem;
+        }
+        .sc-ring svg {
+            width: 100%;
+            height: 100%;
+            transform: rotate(-90deg);
+        }
+        .sc-ring circle {
+            fill: none;
+            stroke-width: 8;
+            stroke-linecap: round;
+        }
+        .sc-ring-bg { stroke: rgba(148, 163, 184, 0.25); }
+        .sc-ring-fg {
+            stroke: #3498db;
+            transition: stroke-dashoffset .1s linear;
+        }
+        .sc-number {
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.3rem;
+            font-weight: 800;
+            color: #3498db;
+            line-height: 1;
+        }
+        .stream-countdown h3 {
+            color: #1a365d;
+            font-size: 1.15rem;
+            margin-bottom: .45rem;
+            font-weight: 700;
+        }
+        html:not([data-theme="light"]) .stream-countdown h3 { color: #e6edf3; }
+        .stream-countdown p {
+            color: #475569;
+            font-size: .9rem;
+            max-width: 340px;
+            line-height: 1.55;
+        }
+        html:not([data-theme="light"]) .stream-countdown p { color: #94a3b8; }
+        .stream-countdown .sc-lock {
+            margin-top: 1rem;
+            font-size: .78rem;
+            font-weight: 700;
+            color: #94a3b8;
+            display: inline-flex;
+            align-items: center;
+            gap: .4rem;
+            background: rgba(148, 163, 184, 0.12);
+            padding: .35rem .8rem;
+            border-radius: 30px;
+        }
+        html:not([data-theme="light"]) .stream-countdown .sc-lock { color: #8b949e; }
+
         /* Mobile Responsive */
         @media (max-width: 991px) {
             .player-layout {
@@ -361,6 +529,12 @@
                 width: 100% !important;
                 min-height: auto !important;
             }
+
+            .server-check {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            .vps-check-btn { width: 100%; }
         }
 
         @media (max-width: 480px) {
@@ -621,6 +795,7 @@
         #tg-msg { font-size: .9rem; margin-top: .75rem; min-height: 1.2rem; }
         #tg-msg.ok { color: #3fb950; }
         #tg-msg.err { color: #f87171; }
+        #tg-msg.wait { color: #229ED9; font-weight: 700; }
 
         /* ── Player tabs (Get File In Telegram | Stream Online) ── */
         .player-tabs {
@@ -643,13 +818,14 @@
             font-size: .98rem;
             font-weight: 700;
             cursor: pointer;
-            transition: background .2s, color .2s;
+            transition: background .2s, color .2s, opacity .2s;
         }
         .player-tab i { font-size: 1.05rem; }
         .player-tab:hover { color: #e6edf3; }
         html[data-theme="light"] .player-tab:hover { color: #0f172a; }
         .player-tab.active { background: #229ED9; color: #fff; box-shadow: 0 4px 14px rgba(34,158,217,.35); }
         #tab-stream.active { background: #3498db; box-shadow: 0 4px 14px rgba(52,152,219,.35); }
+        .player-tab:disabled { opacity: .45; cursor: not-allowed; }
 
         .player-panel { animation: dlPopIn .2s ease; }
 
@@ -698,6 +874,80 @@
         .tg-steps code { background: rgba(34,158,217,.15); color: #229ED9; padding: .1rem .35rem; border-radius: 5px; }
         .tg-steps img { width: 100%; border-radius: 10px; border: 1px solid #30363d; display: block; }
 
+        /* ── Responsive YouTube embed inside the how-to modal ── */
+        .tg-video-wrap {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 */
+            margin: 0 0 1.2rem;
+            border-radius: 12px;
+            overflow: hidden;
+            background: #000;
+            border: 1px solid #30363d;
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.35);
+        }
+        html[data-theme="light"] .tg-video-wrap { border-color: #cbd5e1; }
+        .tg-video-wrap iframe {
+            position: absolute;
+            inset: 0;
+            width: 100%;
+            height: 100%;
+            border: 0;
+        }
+        .tg-video-label {
+            display: flex;
+            align-items: center;
+            gap: .5rem;
+            font-size: .88rem;
+            font-weight: 700;
+            color: #229ED9;
+            margin-bottom: .55rem;
+            text-transform: uppercase;
+            letter-spacing: .4px;
+        }
+        .tg-video-label i { font-size: .95rem; }
+
+        /* ── Copy chip for @BotFather ── */
+        .copy-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: .35rem;
+            background: rgba(34,158,217,.15);
+            color: #229ED9;
+            border: 1px solid rgba(34,158,217,.4);
+            border-radius: 8px;
+            padding: .12rem .55rem;
+            margin-left: .4rem;
+            font-size: .82rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background .2s, transform .15s;
+            vertical-align: middle;
+            font-family: inherit;
+            line-height: 1.4;
+        }
+        .copy-chip:hover { background: rgba(34,158,217,.3); transform: translateY(-1px); }
+        .copy-chip:active { transform: scale(.95); }
+        .copy-chip i { font-size: .82rem; }
+        .copy-chip.copied {
+            background: rgba(63,185,80,.18);
+            border-color: rgba(63,185,80,.5);
+            color: #3fb950;
+        }
+
+        /* ── Missing-image fallback ── */
+        .img-missing {
+            width: 100%;
+            padding: 1.5rem 1rem;
+            border: 1px dashed #30363d;
+            border-radius: 10px;
+            text-align: center;
+            color: #8b949e;
+            font-size: .85rem;
+            background: rgba(255,255,255,.02);
+        }
+        html[data-theme="light"] .img-missing { border-color: #cbd5e1; color: #64748b; }
+
     </style>
 </head>
 <body>
@@ -739,19 +989,34 @@
             <div class="player-layout">
                 <!-- Main Video Section -->
                 <div class="main-video-section">
+
+                    <!-- ══════════ SERVER STATUS CHECK (above tabs) ══════════ -->
+                    <div class="server-check">
+                        <div class="sc-info">
+                            <i class="fas fa-server sc-bolt"></i>
+                            <span>Server Status</span>
+                            <span class="vps-dot" id="vpsDot" aria-hidden="true"></span>
+                            <span id="vpsStatus" role="status" aria-live="polite"></span>
+                        </div>
+                        <button class="vps-check-btn" id="checkVpsBtn" type="button" data-testid="check-server-btn">
+                            <i class="fas fa-satellite-dish"></i>
+                            <span id="vpsBtnLabel">Check Server</span>
+                        </button>
+                    </div>
+
                     <div class="player-tabs">
-                        <button class="player-tab" id="tab-telegram" onclick="switchPlayerTab('telegram')" data-testid="tab-get-telegram">
+                        <button class="player-tab active" id="tab-telegram" onclick="switchPlayerTab('telegram')" data-testid="tab-get-telegram">
                             <i class="fab fa-telegram-plane"></i>
                             Get File In Telegram
                         </button>
-                        <button class="player-tab active" id="tab-stream" onclick="switchPlayerTab('stream')" data-testid="tab-stream-online">
+                        <button class="player-tab" id="tab-stream" onclick="switchPlayerTab('stream')" data-testid="tab-stream-online">
                             <i class="fas fa-play-circle"></i>
                             Stream Online
                         </button>
                     </div>
 
-                    <!-- Panel: Get File In Telegram -->
-                    <div id="telegram-panel" class="player-panel" style="display:none;" data-testid="telegram-panel">
+                    <!-- Panel: Get File In Telegram (DEFAULT / shown first) -->
+                    <div id="telegram-panel" class="player-panel" data-testid="telegram-panel">
                         <div class="tg-panel-inner">
                             <div class="tg-icon"><i class="fab fa-telegram-plane"></i></div>
                             <h3 id="tg-title">Get file in Telegram</h3>
@@ -767,36 +1032,50 @@
                         </div>
                     </div>
 
-                    <!-- Panel: Stream Online (unchanged) -->
-                    <div id="stream-online-panel" class="player-panel" data-testid="stream-online-panel">
-                    <div class="video-iframe-container" id="main-iframe-container">
-                        <div class="loading">Loading video...</div>
-                    </div>
+                    <!-- Panel: Stream Online (hidden by default) -->
+                    <div id="stream-online-panel" class="player-panel" style="display:none;" data-testid="stream-online-panel">
 
-                    <h2 class="video-title" id="video-title">Loading...</h2>
-                    <!-- /23205238319/Onestream -->
-<div id='div-gpt-ad-1785457696804-0' style='min-width: 300px; min-height: 250px;'>
-  <script>
-    googletag.cmd.push(function() { googletag.display('div-gpt-ad-1785457696804-0'); });
-  </script>
-</div>
+                        <!-- ══════════ 15s COUNTDOWN GATE ══════════ -->
+                        <div id="stream-countdown" class="stream-countdown">
+                            <div class="sc-ring">
+                                <svg viewBox="0 0 120 120" aria-hidden="true">
+                                    <circle class="sc-ring-bg" cx="60" cy="60" r="52"></circle>
+                                    <circle class="sc-ring-fg" id="sc-ring-progress" cx="60" cy="60" r="52"></circle>
+                                </svg>
+                                <div class="sc-number" id="sc-number">15</div>
+                            </div>
+                            <h3>Preparing your stream…</h3>
+                            <p>Please wait while we set up a secure connection. The player will unlock automatically.</p>
+                            <span class="sc-lock"><i class="fas fa-lock"></i> Do not close or refresh this page</span>
+                        </div>
 
-                    <button class="download-btn" id="watch-s2-btn" onclick="handleWatchS2()" style="background: #3498db;">
-                        <i class="fas fa-play-circle"></i>
-                        WATCH - S2
-                    </button>
+                        <!-- ══════════ ACTUAL STREAM CONTENT (revealed after countdown) ══════════ -->
+                        <div id="stream-content" style="display:none;">
+                            <div class="video-iframe-container" id="main-iframe-container">
+                                <div class="loading">Loading video...</div>
+                            </div>
 
-                    <div class="download-buttons">
-                        <button class="download-btn" id="download-s1-btn" onclick="handleDownload()" style="background: #2ecc71;">
-                            <i class="fas fa-download"></i>
-                            DOWNLOAD - S1
-                        </button>
+                            <h2 class="video-title" id="video-title">Loading...</h2>
+                            <!-- /23205238319/Onestream -->
 
-                        <button class="download-btn" id="download-s2-btn" onclick="handleDownloadS2()" style="background: #2ecc71;">
-                            <i class="fas fa-download"></i>
-                            DOWNLOAD - S2
-                        </button>
-                    </div>
+                            <button class="download-btn" id="watch-s2-btn" onclick="handleWatchS2()" style="background: #3498db;">
+                                <i class="fas fa-play-circle"></i>
+                                WATCH - S2
+                            </button>
+
+                            <div class="download-buttons">
+                                <button class="download-btn" id="download-s1-btn" onclick="handleDownload()" style="background: #2ecc71;">
+                                    <i class="fas fa-download"></i>
+                                    DOWNLOAD - S1
+                                </button>
+
+                                <button class="download-btn" id="download-s2-btn" onclick="handleDownloadS2()" style="background: #2ecc71;">
+                                    <i class="fas fa-download"></i>
+                                    DOWNLOAD - S2
+                                </button>
+                            </div>
+                        </div>
+
                     </div>
 
 
@@ -980,6 +1259,13 @@
                 const watchBtn = document.getElementById('watch-s2-btn');
                 if (watchBtn) watchBtn.style.display = 'none';
 
+                // PDFs skip the 15s stream gate entirely
+                var _scEl = document.getElementById('stream-countdown');
+                var _scContent = document.getElementById('stream-content');
+                if (_scEl) _scEl.style.display = 'none';
+                if (_scContent) _scContent.style.display = 'block';
+                window._streamUnlocked = true;
+
                 // Update download buttons to load URL in embedded iframe (same as video download)
                 async function loadPdfInIframe(url) {
                     if (!url) { alert('Download URL not available'); return; }
@@ -1038,18 +1324,6 @@
                 return;
             }
             openProtectedMedia(chosenUrl, 'download', decodeURIComponent(videoTitle));
-                const iframeContainer = document.getElementById('main-iframe-container');
-                /*
-                iframeContainer.innerHTML = `
-                    <iframe src="${chosenUrl}"
-                            title="Download ${decodeURIComponent(videoTitle)}"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                            allowfullscreen
-                            webkit-allowfullscreen
-                            mozallowfullscreen>
-                    </iframe>
-                `;
-            */
         }
 
         // Handle Watch - S2 button (Server-2 streaming)
@@ -1060,17 +1334,6 @@
                 return;
             }
             openProtectedMedia(chosenUrl, 'stream', decodeURIComponent(videoTitle));
-            const iframeContainer = document.getElementById('main-iframe-container');
-            /*
-            iframeContainer.innerHTML = `
-                <iframe src="${chosenUrl}"
-                        title="${decodeURIComponent(videoTitle)}"
-                        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                        allowfullscreen
-                        webkit-allowfullscreen
-                        mozallowfullscreen>
-                </iframe>
-            */
         }
 
         // Handle Download - S2 button (randomly picks a server, same as S1)
@@ -1081,18 +1344,6 @@
                 return;
             }
             openProtectedMedia(chosenUrl, 'download', decodeURIComponent(videoTitle));
-            /*
-                const iframeContainer = document.getElementById('main-iframe-container');
-                iframeContainer.innerHTML = `
-                    <iframe src="${chosenUrl}"
-                            title="Download ${decodeURIComponent(videoTitle)}"
-                            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-                            allowfullscreen
-                            webkit-allowfullscreen
-                            mozallowfullscreen>
-                    </iframe>
-                `;
-            */
         }
 
         // Format platform name for file paths
@@ -1434,106 +1685,18 @@
         })();
 
         // Load next lectures when player is shown
+        // Also auto-load the Telegram panel since it's now the DEFAULT tab
         const originalShowPlayer = showPlayer;
         showPlayer = async function() {
             await originalShowPlayer();
             loadNextLectures();
+            // Default tab is Telegram — load its panel content
+            if (typeof window._loadTelegramPanel === 'function') {
+                try { window._loadTelegramPanel(false); } catch (_) {}
+            }
         };
 
         // No additional initialization needed - callbacks are set via data attributes
-
-        /* Legacy download limiter replaced by the protected media flow below.
-        (function initDownloadLimit() {
-            const { createClient } = supabase;
-            const _dlSupabase = createClient(SUPABASE_URL, SUPABASE_KEY);
-
-            // Returns today's date string YYYY-MM-DD in local timezone
-            function todayLocal() {
-                const d = new Date();
-                return d.getFullYear() + '-' +
-                    String(d.getMonth() + 1).padStart(2, '0') + '-' +
-                    String(d.getDate()).padStart(2, '0');
-            }
-
-            // Midnight of today in UTC ISO for Supabase filter
-            function todayMidnightUTC() {
-                const d = new Date();
-                d.setHours(0, 0, 0, 0);
-                return d.toISOString();
-            }
-
-            // LocalStorage fallback key per user
-            function lsKey(uid) { return 'vdl_' + uid; }
-
-            function getLsCount(uid) {
-                try {
-                    const raw = localStorage.getItem(lsKey(uid));
-                    if (!raw) return 0;
-                    const obj = JSON.parse(raw);
-                    if (obj.date !== todayLocal()) return 0;
-                    return obj.count || 0;
-                } catch (_) { return 0; }
-            }
-
-            function setLsCount(uid, count) {
-                try {
-                    localStorage.setItem(lsKey(uid), JSON.stringify({ date: todayLocal(), count }));
-                } catch (_) {}
-            }
-
-            function showLimitPopup() {
-                document.getElementById('dl-limit-overlay').classList.add('active');
-            }
-
-            // Exposed globally so handleDownload / handleDownloadS2 can call it
-            window.checkVideoDownloadLimit = async function(proceedFn) {
-                // PDFs are never rate-limited
-                if (contentType === 'pdf') { proceedFn(); return; }
-
-                const { data: { session } } = await _dlSupabase.auth.getSession();
-                const uid = session && session.user ? session.user.id : null;
-
-                const DAILY_LIMIT = 5;
-
-                if (!uid) {
-                    // No session: fall back to localStorage only
-                    const count = getLsCount('guest');
-                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
-                    setLsCount('guest', count + 1);
-                    proceedFn();
-                    return;
-                }
-
-                // Try Supabase table first
-                try {
-                    const { count, error } = await _dlSupabase
-                        .from('video_download_logs')
-                        .select('*', { count: 'exact', head: true })
-                        .eq('user_id', uid)
-                        .gte('downloaded_at', todayMidnightUTC());
-
-                    if (error) throw error;
-
-                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
-
-                    // Log this download
-                    await _dlSupabase.from('video_download_logs').insert({
-                        user_id: uid,
-                        video_title: decodeURIComponent(videoTitle)
-                    });
-
-                    // Keep localStorage in sync as backup
-                    setLsCount(uid, count + 1);
-                    proceedFn();
-                } catch (_) {
-                    // Table may not exist yet — fall back to localStorage
-                    const count = getLsCount(uid);
-                    if (count >= DAILY_LIMIT) { showLimitPopup(); return; }
-                    setLsCount(uid, count + 1);
-                    proceedFn();
-                }
-             };
-         */
 
         // ── Protected media access (5 downloads + 5 streams per day) ────────
         // The access code is created for the current user immediately before
@@ -1663,6 +1826,267 @@
                 }
             };
         })();
+
+        /* ══════════════════════════════════════════════════════════════════
+           ── SERVER STATUS CHECK (triple-layer fallback) ──
+           Layer 1: direct fetch (reads JSON)
+           Layer 2: CORS proxy (reads JSON)
+           Layer 3: no-cors ping (reachability only)
+           ══════════════════════════════════════════════════════════════════ */
+        (function initVpsCheck() {
+            var STATUS_URL = 'https://web.afrahtafreeh.site';
+            var PROXY_URL  = 'https://corsproxy.io/?' + encodeURIComponent(STATUS_URL);
+            var FETCH_TIMEOUT = 6000;
+
+            var vpsBtn    = document.getElementById('checkVpsBtn');
+            var vpsLabel  = document.getElementById('vpsBtnLabel');
+            var vpsDot    = document.getElementById('vpsDot');
+            var vpsStatus = document.getElementById('vpsStatus');
+
+            if (!vpsBtn) return;
+
+            function fetchWithTimeout(url, options, ms) {
+                return new Promise(function (resolve, reject) {
+                    var controller = new AbortController();
+                    var timer = setTimeout(function () {
+                        controller.abort();
+                        reject(new Error('timeout'));
+                    }, ms);
+                    var opts = Object.assign({}, options, { signal: controller.signal });
+                    fetch(url, opts).then(function (res) {
+                        clearTimeout(timer);
+                        resolve(res);
+                    }).catch(function (err) {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+                });
+            }
+
+            function fetchStatus(url) {
+                return fetchWithTimeout(url, { method: 'GET', cache: 'no-store' }, FETCH_TIMEOUT)
+                    .then(function (res) {
+                        if (!res.ok) throw new Error('HTTP ' + res.status);
+                        return res.json();
+                    });
+            }
+
+            // Fallback: ping the server without reading the body (bypasses CORS)
+            function pingWithNoCors() {
+                return new Promise(function (resolve, reject) {
+                    var controller = new AbortController();
+                    var timer = setTimeout(function () {
+                        controller.abort();
+                        reject(new Error('timeout'));
+                    }, 4000);
+                    fetch(STATUS_URL, { mode: 'no-cors', signal: controller.signal })
+                        .then(function () {
+                            clearTimeout(timer);
+                            resolve(true);
+                        })
+                        .catch(function (err) {
+                            clearTimeout(timer);
+                            reject(err);
+                        });
+                });
+            }
+
+            function setVpsState(state, message) {
+                if (vpsDot) vpsDot.className = 'vps-dot' + (state ? ' ' + state : '');
+                if (vpsStatus) {
+                    vpsStatus.className = state || '';
+                    vpsStatus.textContent = message || '';
+                }
+            }
+
+            function runVpsCheck() {
+                vpsBtn.disabled = true;
+                vpsLabel.textContent = 'Checking…';
+                setVpsState('checking', 'Checking…');
+
+                fetchStatus(STATUS_URL)
+                    .catch(function () {
+                        console.warn('Direct blocked, trying proxy...');
+                        return fetchStatus(PROXY_URL);
+                    })
+                    .catch(function () {
+                        console.warn('Proxy failed, trying no-cors ping...');
+                        return pingWithNoCors().then(function () {
+                            return { server_status: 'running' };
+                        });
+                    })
+                    .then(function (data) {
+                        if (data && data.server_status === 'running') {
+                            setVpsState('online', 'Active');
+                        } else {
+                            setVpsState('offline', 'Inactive');
+                        }
+                    })
+                    .catch(function (err) {
+                        console.error('All VPS check methods failed:', err);
+                        setVpsState('offline', 'Inactive');
+                    })
+                    .finally(function () {
+                        vpsBtn.disabled = false;
+                        vpsLabel.textContent = 'Check Server';
+                    });
+            }
+
+            vpsBtn.addEventListener('click', runVpsCheck);
+        })();
+
+        /* ══════════════════════════════════════════════════════════════════
+           ── STREAM ONLINE 15-SECOND COUNTDOWN GATE ──
+           Cannot be skipped: tabs are locked, the panel content stays
+           hidden until the timer reaches zero, and re-entering the tab
+           keeps the remaining time running.
+           ══════════════════════════════════════════════════════════════════ */
+        window._streamUnlocked     = false;   // true once the 15s wait is done
+        window._streamTimerRunning = false;   // true while the countdown runs
+        window._tabsLocked         = false;   // locks tab buttons during countdown
+
+        function setPlayerTabsEnabled(enabled) {
+            window._tabsLocked = !enabled;
+            const tgTab = document.getElementById('tab-telegram');
+            const stTab = document.getElementById('tab-stream');
+            if (tgTab) tgTab.disabled = !enabled;
+            if (stTab) stTab.disabled = !enabled;
+        }
+
+        function startStreamCountdown() {
+            if (window._streamUnlocked || window._streamTimerRunning) return;
+            if (contentType === 'pdf') { window._streamUnlocked = true; return; }
+
+            const wrap    = document.getElementById('stream-countdown');
+            const content = document.getElementById('stream-content');
+            const numEl   = document.getElementById('sc-number');
+            const ring    = document.getElementById('sc-ring-progress');
+
+            if (!wrap || !content) return;
+
+            window._streamTimerRunning = true;
+            wrap.style.display = 'flex';
+            content.style.display = 'none';
+            setPlayerTabsEnabled(false);   // user cannot jump away / back to skip
+
+            const TOTAL_MS = 15000;
+            const started  = Date.now();
+            const CIRC     = 2 * Math.PI * 52;   // r = 52
+
+            if (ring) {
+                ring.style.strokeDasharray  = CIRC;
+                ring.style.strokeDashoffset = 0;
+            }
+            if (numEl) numEl.textContent = '15';
+
+            const tick = function () {
+                const elapsed   = Date.now() - started;
+                const remaining = Math.max(0, TOTAL_MS - elapsed);
+                const secs      = Math.ceil(remaining / 1000);
+
+                if (numEl) numEl.textContent = secs > 0 ? secs : '0';
+                if (ring)  ring.style.strokeDashoffset = CIRC * (elapsed / TOTAL_MS);
+
+                if (remaining <= 0) {
+                    clearInterval(timerId);
+                    window._streamTimerRunning = false;
+                    window._streamUnlocked     = true;
+                    wrap.style.display = 'none';
+                    content.style.display = 'block';
+                    setPlayerTabsEnabled(true);
+                }
+            };
+
+            const timerId = setInterval(tick, 100);
+            tick();
+        }
+        window.startStreamCountdown = startStreamCountdown;
+
+        // ── Player tabs: Get File In Telegram | Stream Online ──
+        function switchPlayerTab(which) {
+            // Block any tab switching while the 15s stream gate is running
+            if (window._tabsLocked && which !== 'stream') return;
+
+            const isTg  = which === 'telegram';
+            const tgPanel = document.getElementById('telegram-panel');
+            const stPanel = document.getElementById('stream-online-panel');
+            const tgTab   = document.getElementById('tab-telegram');
+            const stTab   = document.getElementById('tab-stream');
+
+            if (tgPanel) tgPanel.style.display = isTg ? 'block' : 'none';
+            if (stPanel) stPanel.style.display = isTg ? 'none' : 'block';
+            if (tgTab) tgTab.classList.toggle('active', isTg);
+            if (stTab) stTab.classList.toggle('active', !isTg);
+
+            if (isTg) {
+                if (typeof window._loadTelegramPanel === 'function') window._loadTelegramPanel(false);
+            } else {
+                // Stream Online → mandatory 15 second wait before revealing player
+                if (!window._streamUnlocked) {
+                    startStreamCountdown();
+                } else {
+                    const wrap = document.getElementById('stream-countdown');
+                    const content = document.getElementById('stream-content');
+                    if (wrap) wrap.style.display = 'none';
+                    if (content) content.style.display = 'block';
+                }
+            }
+        }
+        window.switchPlayerTab = switchPlayerTab;
+
+        // ── How to get bot token modal ──
+        function openHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.add('active'); }
+        function closeHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.remove('active'); }
+        window.openHowToModal = openHowToModal;
+        window.closeHowToModal = closeHowToModal;
+
+        // ── Copy "@BotFather" to clipboard ──
+        function copyBotFather(e) {
+            if (e) e.stopPropagation();
+
+            const btn = document.getElementById('copy-botfather-btn');
+            const icon = document.getElementById('copy-botfather-icon');
+            const tip = document.getElementById('copy-botfather-tip');
+            const text = '@BotFather';
+
+            const showDone = () => {
+                if (btn) btn.classList.add('copied');
+                if (icon) icon.className = 'fas fa-check';
+                if (tip) tip.textContent = 'Copied!';
+                setTimeout(() => {
+                    if (btn) btn.classList.remove('copied');
+                    if (icon) icon.className = 'fas fa-copy';
+                    if (tip) tip.textContent = 'Copy';
+                }, 1800);
+            };
+
+            const fallback = () => {
+                try {
+                    const ta = document.createElement('textarea');
+                    ta.value = text;
+                    ta.setAttribute('readonly', '');
+                    ta.style.position = 'fixed';
+                    ta.style.top = '-1000px';
+                    ta.style.opacity = '0';
+                    document.body.appendChild(ta);
+                    ta.select();
+                    ta.setSelectionRange(0, ta.value.length);
+                    document.execCommand('copy');
+                    document.body.removeChild(ta);
+                    showDone();
+                } catch (_) {
+                    if (tip) tip.textContent = 'Copy failed';
+                    setTimeout(() => { if (tip) tip.textContent = 'Copy'; }, 1800);
+                }
+            };
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text).then(showDone).catch(fallback);
+            } else {
+                fallback();
+            }
+        }
+        window.copyBotFather = copyBotFather;
     </script>
 
     <!-- Download limit popup -->
@@ -1680,27 +2104,53 @@
         </div>
     </div>
 
-    <!-- How to get bot token modal (replace the images with your own screenshots) -->
+    <!-- How to get bot token modal (uses local screenshots in ./botfather/) -->
     <div id="tg-howto-overlay" onclick="if(event.target===this)closeHowToModal()" data-testid="how-to-modal">
         <div id="tg-howto-box">
             <button id="tg-howto-close" onclick="closeHowToModal()" aria-label="Close" data-testid="how-to-close-btn">&times;</button>
             <h3><i class="fab fa-telegram-plane"></i> How to get your Bot Token</h3>
+
+            <!-- Video guide (responsive 16:9) -->
+            <div class="tg-video-label">
+                <i class="fas fa-play-circle"></i> Video Guide
+            </div>
+            <div class="tg-video-wrap">
+                <iframe
+                    src="https://www.youtube.com/embed/B9VsT7vV6jI?rel=0"
+                    title="How to create a Telegram Bot Token"
+                    loading="lazy"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    referrerpolicy="strict-origin-when-cross-origin"
+                    allowfullscreen></iframe>
+            </div>
+
             <ol class="tg-steps">
                 <li>
-                    <p><b>Step 1.</b> Open Telegram, search for <b>@BotFather</b> and press <b>Start</b>.</p>
-                    <img src="https://picsum.photos/seed/botfather-step1/620/320" alt="Open BotFather" loading="lazy">
+                    <p><b>Step 1.</b> Open Telegram, search for
+                        <b>@BotFather</b><button type="button" class="copy-chip" id="copy-botfather-btn"
+                               onclick="copyBotFather(event)" title="Copy @BotFather"
+                               data-testid="copy-botfather-btn">
+                            <i class="fas fa-copy" id="copy-botfather-icon"></i>
+                            <span id="copy-botfather-tip">Copy</span>
+                        </button>
+                        and press <b>Start</b>.</p>
+                    <img src="./botfather/1.jpg" alt="Open BotFather and press Start" loading="lazy"
+                         onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'img-missing',textContent:'Screenshot 1 not found (botfather/1.jpg)'}))">
                 </li>
                 <li>
                     <p><b>Step 2.</b> Send <b>/newbot</b>, then choose a name and a username that ends with <b>bot</b>.</p>
-                    <img src="https://picsum.photos/seed/botfather-step2/620/320" alt="Send /newbot" loading="lazy">
+                    <img src="./botfather/2.jpg" alt="Send /newbot to BotFather" loading="lazy"
+                         onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'img-missing',textContent:'Screenshot 2 not found (botfather/2.jpg)'}))">
                 </li>
                 <li>
                     <p><b>Step 3.</b> BotFather replies with your <b>bot token</b> (like <code>123456789:ABC-DEF...</code>). Copy it.</p>
-                    <img src="https://picsum.photos/seed/botfather-step3/620/320" alt="Copy the token" loading="lazy">
+                    <img src="./botfather/3.jpg" alt="Copy the bot token" loading="lazy"
+                         onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'img-missing',textContent:'Screenshot 3 not found (botfather/3.jpg)'}))">
                 </li>
                 <li>
                     <p><b>Step 4.</b> Open your new bot, press <b>Start</b> once, then paste the token here.</p>
-                    <img src="https://picsum.photos/seed/botfather-step4/620/320" alt="Start your bot" loading="lazy">
+                    <img src="./botfather/4x.jpg" alt="Start your new bot" loading="lazy"
+                         onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'img-missing',textContent:'Screenshot 4 not found (botfather/4.jpg)'}))">
                 </li>
             </ol>
             <button class="tg-action-btn" onclick="closeHowToModal()" data-testid="how-to-got-it-btn">Got it</button>
@@ -1711,10 +2161,13 @@
     // ── Get File In Telegram (tab): register the user's bot token once (saved to
     //    their Supabase profile via the PWA's Google-auth session), then deliver
     //    the current video into their own bot with protect_content ON. No limits.
+    //    A mandatory 10-second wait is enforced before delivery.
     (function initTelegramDelivery() {
         const { createClient } = supabase;
         const _tgSb = createClient(SUPABASE_URL, SUPABASE_KEY);
         const CODE_ALPHABET = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+
+        const TG_WAIT_SECONDS = 10;   // mandatory wait before sending
 
         function el(id) { return document.getElementById(id); }
         function setMsg(t, k) { const m = el('tg-msg'); if (m) { m.textContent = t || ''; m.className = k || ''; } }
@@ -1749,8 +2202,10 @@
 
         let _state = 'idle';   // 'register' | 'deliver'
         let _loaded = false;
+        let _busy = false;     // blocks double-clicks / timer re-entry
 
         async function loadTelegramPanel(force) {
+            if (_busy) return;              // never refresh the panel mid-countdown
             if (_loaded && !force) return;
             _loaded = true;
             setMsg('');
@@ -1791,16 +2246,19 @@
 
         window.tgPrimaryAction = async function() {
             const btn = el('tg-action-btn');
+            if (_busy) return;
 
             if (_state === 'register') {
                 const token = el('tg-token-input').value.trim();
                 if (!/^\d{6,}:[A-Za-z0-9_-]{30,}$/.test(token)) { setMsg('That does not look like a valid bot token.', 'err'); return; }
+                _busy = true;
                 btn.disabled = true; setMsg('Saving…', '');
                 const user = await getUser();
-                if (!user) { setMsg('Please sign in first.', 'err'); btn.disabled = false; return; }
+                if (!user) { setMsg('Please sign in first.', 'err'); btn.disabled = false; _busy = false; return; }
                 const { error } = await _tgSb.from('profiles').update({ telegram_bot_token: token }).eq('id', user.id);
-                if (error) { setMsg('Could not save your token. Please try again.', 'err'); btn.disabled = false; return; }
+                if (error) { setMsg('Could not save your token. Please try again.', 'err'); btn.disabled = false; _busy = false; return; }
                 setMsg('✅ Bot token saved.', 'ok');
+                _busy = false;
                 await loadTelegramPanel(true);
                 return;
             }
@@ -1809,46 +2267,57 @@
 
             const { token, origin } = extractTokenAndOrigin();
             if (!token || !origin) { setMsg('Could not identify this video.', 'err'); return; }
-            btn.disabled = true; setMsg('Sending to your Telegram bot…', '');
 
             const user = await getUser();
-            if (!user) { setMsg('Please sign in first.', 'err'); btn.disabled = false; return; }
+            if (!user) { setMsg('Please sign in first.', 'err'); return; }
 
-            const code = genCode();
-            const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-            const { error: insErr } = await _tgSb.from('media_access_codes').insert({ code, user_id: user.id, expires_at: expiresAt });
-            if (insErr) { setMsg('Access could not be prepared. Try again.', 'err'); btn.disabled = false; return; }
+            // ══════════ MANDATORY 10-SECOND WAIT (cannot be skipped) ══════════
+            _busy = true;
+            btn.disabled = true;
 
-            try {
-                const resp = await fetch(`${origin}/api/telegram/${token}?access_code=${encodeURIComponent(code)}`);
-                const data = await resp.json();
-                if (data.success) setMsg('✅ ' + (data.message || 'Sent to your Telegram bot.'), 'ok');
-                else setMsg(data.error || 'Delivery failed. Please try again.', 'err');
-            } catch (_) { setMsg('Delivery service is unavailable right now.', 'err'); }
-            btn.disabled = false;
+            let remaining = TG_WAIT_SECONDS;
+            const paint = () => {
+                btn.innerHTML = '<i class="fas fa-hourglass-half"></i> Please wait ' + remaining + 's…';
+                setMsg('Preparing your file for Telegram… ' + remaining + 's', 'wait');
+            };
+            paint();
+
+            const waitTimer = setInterval(async () => {
+                remaining--;
+                if (remaining > 0) { paint(); return; }
+
+                clearInterval(waitTimer);
+
+                // Timer finished — now actually deliver
+                btn.innerHTML = '<i class="fas fa-paper-plane"></i> Sending…';
+                setMsg('Sending to your Telegram bot…', '');
+
+                const code = genCode();
+                const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+                const { error: insErr } = await _tgSb.from('media_access_codes').insert({ code, user_id: user.id, expires_at: expiresAt });
+                if (insErr) {
+                    setMsg('Access could not be prepared. Try again.', 'err');
+                    btn.textContent = 'Send to my Telegram';
+                    btn.disabled = false;
+                    _busy = false;
+                    return;
+                }
+
+                try {
+                    const resp = await fetch(`${origin}/api/telegram/${token}?access_code=${encodeURIComponent(code)}`);
+                    const data = await resp.json();
+                    if (data.success) setMsg('✅ ' + (data.message || 'Sent to your Telegram bot.'), 'ok');
+                    else setMsg(data.error || 'Delivery failed. Please try again.', 'err');
+                } catch (_) {
+                    setMsg('Delivery service is unavailable right now.', 'err');
+                }
+
+                btn.textContent = 'Send to my Telegram';
+                btn.disabled = false;
+                _busy = false;
+            }, 1000);
         };
     })();
-
-    // ── Player tabs: Get File In Telegram | Stream Online ──
-    function switchPlayerTab(which) {
-        const isTg = which === 'telegram';
-        const tgPanel = document.getElementById('telegram-panel');
-        const stPanel = document.getElementById('stream-online-panel');
-        const tgTab = document.getElementById('tab-telegram');
-        const stTab = document.getElementById('tab-stream');
-        if (tgPanel) tgPanel.style.display = isTg ? 'block' : 'none';
-        if (stPanel) stPanel.style.display = isTg ? 'none' : 'block';
-        if (tgTab) tgTab.classList.toggle('active', isTg);
-        if (stTab) stTab.classList.toggle('active', !isTg);
-        if (isTg && typeof window._loadTelegramPanel === 'function') window._loadTelegramPanel(false);
-    }
-    window.switchPlayerTab = switchPlayerTab;
-
-    // ── How to get bot token modal ──
-    function openHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.add('active'); }
-    function closeHowToModal() { const o = document.getElementById('tg-howto-overlay'); if (o) o.classList.remove('active'); }
-    window.openHowToModal = openHowToModal;
-    window.closeHowToModal = closeHowToModal;
     </script>
 
 <script src="theme.js"></script>
