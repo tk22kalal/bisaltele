@@ -582,7 +582,7 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 return web.json_response(
                     {
                         "success": False,
-                        "error": "Please open your bot and press Start once, then try again.",
+                        "error": 'Please open your bot and type "/start", then come back here and request the lecture again.',
                     },
                     status=400,
                     content_type="application/json",
