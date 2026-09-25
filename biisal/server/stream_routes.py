@@ -575,6 +575,11 @@ async def deliver_to_user_bot_handler(request: web.Request):
 
         # Resolve where the user's bot should send the file. If it was never
         # saved, discover the owner from the bot's recent /start and cache it.
+        bot_id, bot_username = await telegram_delivery.get_bot_identity(
+            config["bot_token"]
+        )
+        bot_display = f"@{bot_username}" if bot_username else "your bot"
+
         chat_id = config["chat_id"]
         if not chat_id:
             chat_id = await telegram_delivery.resolve_owner_chat_id(config["bot_token"])
@@ -582,11 +587,15 @@ async def deliver_to_user_bot_handler(request: web.Request):
                 return web.json_response(
                     {
                         "success": False,
-                        "error": 'Please open your bot and type "/start", then come back here and request the lecture again.',
+                        "error": (
+                            f'Please open your bot "{bot_display}" and type "/start", '
+                            "then come back here and request the lecture again."
+                        ),
                     },
                     status=400,
                     content_type="application/json",
                 )
+
             await telegram_delivery.save_delivery_chat(access_code, chat_id)
 
         serve_domain = Var.SERVE_DOMAIN if Var.SERVE_DOMAIN in ('web', 'webx') else None
