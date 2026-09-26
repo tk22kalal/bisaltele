@@ -8,27 +8,33 @@
     <title>{{file_name}} - Generate Stream</title>
     <style>
         :root {
-            --accent: #2c8252;
+            --accent: #2c5282;
             --accent-dark: #1a365d;
+            --accent-soft: rgba(44, 82, 130, .16);
             --text: #e6edf3;
             --muted: #94a3b8;
             --panel: #161b22;
             --panel-raised: #1c2128;
             --border: rgba(148, 163, 184, .2);
+            --card-shadow: 0 14px 34px rgba(0, 0, 0, .16);
+            --btn-hover-shadow: 0 6px 16px rgba(44, 82, 130, .18);
         }
 
         * { box-sizing: border-box; }
 
         html.light {
+            --accent-soft: rgba(44, 82, 130, .1);
             --text: #1f2937;
             --muted: #64748b;
             --panel: #ffffff;
             --panel-raised: #f1f5f9;
             --border: #e2e8f0;
+            --card-shadow: 0 10px 26px rgba(44, 62, 90, .08);
+            --btn-hover-shadow: 0 5px 12px rgba(44, 82, 130, .12);
         }
 
         body {
-            background: #161b22;
+            background: var(--panel-raised);
             color: var(--text);
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
@@ -39,9 +45,8 @@
             align-items: center;
             justify-content: center;
             padding: clamp(10px, 3vw, 28px);
+            transition: background .2s;
         }
-
-        html.light body { background: #f0f4f8; }
 
         .container {
             width: min(100%, 430px);
@@ -53,8 +58,8 @@
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 18px;
-            padding: clamp(16px, 4vw, 25px);
-            box-shadow: 0 14px 34px rgba(0, 0, 0, .22);
+            padding: clamp(13px, 3.4vw, 20px);
+            box-shadow: var(--card-shadow);
         }
 
         .eyebrow {
@@ -70,8 +75,8 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
-            margin-bottom: 22px;
-            padding: 5px;
+            margin-bottom: 16px;
+            padding: 4px;
             background: var(--panel-raised);
             border-radius: 13px;
         }
@@ -89,8 +94,8 @@
             font-weight: 700;
             gap: 8px;
             justify-content: center;
-            min-height: 43px;
-            padding: 8px 10px;
+            min-height: 38px;
+            padding: 7px 10px;
             transition: background .2s, border-color .2s, color .2s, transform .2s;
         }
 
@@ -100,13 +105,13 @@
             background: var(--accent);
             border-color: rgba(255, 255, 255, .16);
             color: #fff;
-            box-shadow: 0 5px 12px rgba(44, 130, 82, .25);
+            box-shadow: 0 5px 12px rgba(44, 82, 130, .3);
         }
 
         .section-title {
             color: var(--text);
             font-size: 14px;
-            margin: 0 0 11px;
+            margin: 0 0 9px;
         }
 
         .player-grid {
@@ -129,15 +134,16 @@
             font-weight: 700;
             gap: 8px;
             justify-content: center;
-            min-height: 93px;
-            padding: 11px 5px;
-            transition: border-color .2s, background .2s, color .2s, transform .2s, opacity .2s;
+            min-height: 82px;
+            padding: 9px 5px;
+            transition: border-color .2s, background .2s, color .2s, transform .2s, opacity .2s, box-shadow .2s;
         }
 
         .player-btn svg { height: 31px; width: 31px; }
         .player-btn:hover:not(:disabled) {
-            background: rgba(44, 130, 82, .16);
+            background: var(--accent-soft);
             border-color: var(--accent);
+            box-shadow: var(--btn-hover-shadow);
             transform: translateY(-2px);
         }
         .player-btn:active:not(:disabled) { transform: scale(.97); }
@@ -155,7 +161,7 @@
         .hint {
             color: var(--muted);
             font-size: 11px;
-            margin: 15px 0 0;
+            margin: 11px 0 0;
         }
 
         .loading {
@@ -231,8 +237,8 @@
 
         @media (max-width: 350px) {
             body { padding: 8px; }
-            .choice-card { padding: 14px 11px; }
-            .player-btn { min-height: 84px; }
+            .choice-card { padding: 12px 10px; }
+            .player-btn { min-height: 74px; }
             .player-btn { font-size: 11px; }
         }
     </style>
@@ -259,11 +265,21 @@
                     <span>Direct</span>
                 </button>
                 <button type="button" class="player-btn" id="mxBtn" onclick="openPlayer('mx')" aria-label="Open in MX Player">
-                    <svg viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="2" width="28" height="28" rx="8" fill="#38a7ef"/><path d="m7 21 5.4-10 4.1 6 3.2-4.4L25 21h-4l-1.6-2.5-1.8 2.5-3.2-4.5L11.5 21H7Z" fill="#fff"/><path d="M7 8h4.5L14 11.5 16 8h4.2l-4 6-4.1-5.2L10.5 14H7V8Z" fill="#073b68"/></svg>
+                    <svg viewBox="0 0 32 32" aria-hidden="true">
+                        <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
+                        <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
+                        <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
+                        <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
+                    </svg>
                     <span>MX Player</span>
                 </button>
                 <button type="button" class="player-btn" id="vlcBtn" onclick="openPlayer('vlc')" aria-label="Open in VLC">
-                    <svg viewBox="0 0 32 32" aria-hidden="true"><path d="m10 4 2 3h8l2-3 2.7 1.7-2 3.1 3.7 14.7H5.6L9.3 8.8l-2-3.1L10 4Z" fill="#f4a51c"/><path d="M9 11h14M7.3 17h17.4M6 22h20" fill="none" stroke="#fff" stroke-width="2.1"/><path d="M11.6 25.5h8.8L18 29h-4l-2.4-3.5Z" fill="#f4a51c"/></svg>
+                    <svg viewBox="0 0 32 32" aria-hidden="true">
+                        <rect x="3.5" y="25.5" width="25" height="4.2" rx="1.3" fill="#4a4a4a"/>
+                        <path d="M15.3 3.4h1.4l6.9 20-7.6 1.8-7.6-1.8 6.9-20Z" fill="#f7941e"/>
+                        <path d="M12.85 10.1h6.3l1.25 3.55h-8.8l1.25-3.55Z" fill="#fff"/>
+                        <path d="M10.85 15.9h10.3l1.25 3.55H9.6l1.25-3.55Z" fill="#fff"/>
+                    </svg>
                     <span>VLC</span>
                 </button>
             </div>
@@ -314,27 +330,33 @@
     </div>
 
     <script>
+        // This block has no server-templated values in it, so it can never fail
+        // to parse — theme detection must always run, even if the templated
+        // block below gets served with an unfilled placeholder.
         const urlParams = new URLSearchParams(window.location.search);
         const linkType  = urlParams.get('type');
-        const accessCode = {{access_code_json}};
         let selectedPlatform = 'android';
 
         window.addEventListener('DOMContentLoaded', () => {
+            syncTheme();
             if (linkType === 'download') {
                 document.getElementById('stream-mode').style.display = 'none';
                 document.getElementById('download-mode').style.display = 'block';
                 startDownload();
-            } else {
-                syncThemeWithParent();
             }
         });
 
-        function syncThemeWithParent() {
+        function syncTheme() {
             try {
                 const parentTheme = window.parent.document.documentElement.getAttribute('data-theme');
-                if (parentTheme === 'light') document.documentElement.classList.add('light');
+                if (parentTheme === 'light') { document.documentElement.classList.add('light'); return; }
+                if (parentTheme === 'dark')  { document.documentElement.classList.remove('light'); return; }
             } catch (_) {
-                // The embedded page still has a matching dark default if access is restricted.
+                // Cross-origin preview frames block reading the parent's theme;
+                // fall through to the OS/browser preference instead.
+            }
+            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+                document.documentElement.classList.add('light');
             }
         }
 
@@ -355,6 +377,10 @@
                 ? 'Direct opens the built-in Android player.'
                 : 'Direct opens the iOS / PC player. External players are Android-only.';
         }
+    </script>
+    <script>
+        // Server-templated values live here in isolation.
+        const accessCode = {{access_code_json}};
 
         async function openPlayer(player, retryCount = 0) {
             if (selectedPlatform !== 'android' && player !== 'direct') return;
