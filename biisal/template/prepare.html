@@ -10,19 +10,6 @@
         :root {
             --accent: #2c5282;
             --accent-dark: #1a365d;
-            --accent-soft: rgba(44, 82, 130, .16);
-            --text: #e6edf3;
-            --muted: #94a3b8;
-            --panel: #161b22;
-            --panel-raised: #1c2128;
-            --border: rgba(148, 163, 184, .2);
-            --card-shadow: 0 14px 34px rgba(0, 0, 0, .16);
-            --btn-hover-shadow: 0 6px 16px rgba(44, 82, 130, .18);
-        }
-
-        * { box-sizing: border-box; }
-
-        html.light {
             --accent-soft: rgba(44, 82, 130, .1);
             --text: #1f2937;
             --muted: #64748b;
@@ -32,6 +19,8 @@
             --card-shadow: 0 10px 26px rgba(44, 62, 90, .08);
             --btn-hover-shadow: 0 5px 12px rgba(44, 82, 130, .12);
         }
+
+        * { box-sizing: border-box; }
 
         body {
             background: var(--panel-raised);
@@ -338,27 +327,12 @@
         let selectedPlatform = 'android';
 
         window.addEventListener('DOMContentLoaded', () => {
-            syncTheme();
             if (linkType === 'download') {
                 document.getElementById('stream-mode').style.display = 'none';
                 document.getElementById('download-mode').style.display = 'block';
                 startDownload();
             }
         });
-
-        function syncTheme() {
-            try {
-                const parentTheme = window.parent.document.documentElement.getAttribute('data-theme');
-                if (parentTheme === 'light') { document.documentElement.classList.add('light'); return; }
-                if (parentTheme === 'dark')  { document.documentElement.classList.remove('light'); return; }
-            } catch (_) {
-                // Cross-origin preview frames block reading the parent's theme;
-                // fall through to the OS/browser preference instead.
-            }
-            if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
-                document.documentElement.classList.add('light');
-            }
-        }
 
         function selectPlatform(platform) {
             selectedPlatform = platform;
