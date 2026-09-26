@@ -253,14 +253,16 @@
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path fill="currentColor" stroke="none" d="m10 8.2 6 3.8-6 3.8V8.2Z"/></svg>
                     <span>Direct</span>
                 </button>
-                <button type="button" class="player-btn" id="mxBtn" onclick="openPlayer('mx')" aria-label="Open in MX Player">
-                    <svg viewBox="0 0 32 32" aria-hidden="true">
-                        <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
-                        <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
-                        <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
-                        <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
-                    </svg>
-                    <span>MX Player</span>
+                <button type="button" class="player-btn" id="secondaryBtn" onclick="openSecondaryPlayer()" aria-label="Open in MX Player">
+                    <span id="secondaryIcon">
+                        <svg viewBox="0 0 32 32" aria-hidden="true">
+                            <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
+                            <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
+                            <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
+                            <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
+                        </svg>
+                    </span>
+                    <span id="secondaryLabel">MX Player</span>
                 </button>
                 <button type="button" class="player-btn" id="vlcBtn" onclick="openPlayer('vlc')" aria-label="Open in VLC">
                     <svg viewBox="0 0 32 32" aria-hidden="true">
@@ -334,6 +336,18 @@
             }
         });
 
+        const MX_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
+            <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
+            <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
+            <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
+        </svg>`;
+        const INFUSE_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#1a1a1a"/>
+            <path d="M16 6c2.6 3 3.6 5.4 3.6 7.6 0 1.4-.6 2.4-1.6 2.4-1 0-1.5-.7-1.5-1.6 0-1 .5-1.7 1.1-2.5-1.7.4-2.9 2-2.9 4 0 2.4 2 4.4 4.4 4.4 2.6 0 4.7-2.1 4.7-4.9C23.8 11.6 20.8 8 16 6Z" fill="#c026d3"/>
+            <path d="M14.6 12.4c-2.1 1.8-3.3 4-3.3 6.3 0 3.4 2.7 6.1 6.1 6.1 1.6 0 3-.6 4.1-1.6-1 .5-2.1.8-3.3.8-3.6 0-6.5-2.9-6.5-6.5 0-1.9.8-3.6 2.1-4.8-.2-.1.3-.2.4-.3Z" fill="#7c3aed"/>
+        </svg>`;
+
         function selectPlatform(platform) {
             selectedPlatform = platform;
             const isAndroid = platform === 'android';
@@ -341,15 +355,19 @@
             document.getElementById('iosTab').classList.toggle('active', !isAndroid);
             document.getElementById('androidTab').setAttribute('aria-selected', String(isAndroid));
             document.getElementById('iosTab').setAttribute('aria-selected', String(!isAndroid));
-            document.getElementById('mxBtn').classList.toggle('unavailable', !isAndroid);
-            document.getElementById('vlcBtn').classList.toggle('unavailable', !isAndroid);
-            document.getElementById('mxBtn').disabled = !isAndroid;
-            document.getElementById('vlcBtn').disabled = !isAndroid;
-            document.getElementById('mxBtn').setAttribute('aria-disabled', String(!isAndroid));
-            document.getElementById('vlcBtn').setAttribute('aria-disabled', String(!isAndroid));
+
+            const secondaryBtn = document.getElementById('secondaryBtn');
+            secondaryBtn.setAttribute('aria-label', isAndroid ? 'Open in MX Player' : 'Open in Infuse');
+            document.getElementById('secondaryIcon').innerHTML = isAndroid ? MX_ICON : INFUSE_ICON;
+            document.getElementById('secondaryLabel').textContent = isAndroid ? 'MX Player' : 'Infuse';
+
             document.getElementById('playerHint').textContent = isAndroid
                 ? 'Direct opens the built-in Android player.'
-                : 'Direct opens the iOS / PC player. External players are Android-only.';
+                : 'VLC and Infuse open in their own app if installed — VLC may ask you to confirm playback once.';
+        }
+
+        function openSecondaryPlayer() {
+            openPlayer(selectedPlatform === 'android' ? 'mx' : 'infuse');
         }
     </script>
     <script>
@@ -357,18 +375,21 @@
         const accessCode = {{access_code_json}};
 
         async function openPlayer(player, retryCount = 0) {
-            if (selectedPlatform !== 'android' && player !== 'direct') return;
+            const isAndroid = selectedPlatform === 'android';
+            if (player === 'mx' && !isAndroid) return;
+            if (player === 'infuse' && isAndroid) return;
 
             const buttons     = document.querySelectorAll('.player-btn, .platform-tab');
             const loading     = document.querySelector('.loading');
             const statusMsg   = document.getElementById('statusMessage');
             const loadingText = document.getElementById('loadingText');
-            const playerType  = selectedPlatform === 'android' ? 'videojs' : 'plyr';
+            const playerType  = isAndroid ? 'videojs' : 'plyr';
+            const playerNames = { direct: 'Direct', mx: 'MX Player', vlc: 'VLC', infuse: 'Infuse' };
 
             buttons.forEach(b => b.disabled = true);
             loading.style.display = 'block';
             statusMsg.style.display = 'none';
-            loadingText.textContent = `Preparing ${player === 'direct' ? 'Direct' : player === 'mx' ? 'MX Player' : 'VLC'}...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
+            loadingText.textContent = `Preparing ${playerNames[player]}...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
 
             try {
                 const controller = new AbortController();
@@ -393,10 +414,18 @@
                         statusMsg.textContent = 'Opening the built-in player...';
                         statusMsg.style.display = 'block';
                         setTimeout(() => window.location.href = data.stream_url, 350);
-                    } else {
+                    } else if (isAndroid) {
+                        // Android: MX Player / VLC via intent://
                         window.location.href = buildIntentUrl(data.stream_url, player === 'mx'
                             ? 'com.mxtech.videoplayer.ad'
                             : 'org.videolan.vlc');
+                    } else if (player === 'vlc') {
+                        // VLC for iOS: vlc://<full stream url, own scheme included>.
+                        // VLC may show a one-tap "Play/Download" confirmation before it starts.
+                        window.location.href = 'vlc://' + data.stream_url;
+                    } else if (player === 'infuse') {
+                        // Infuse's documented x-callback-url API (Firecore): starts playback directly.
+                        window.location.href = `infuse://x-callback-url/play?url=${encodeURIComponent(data.stream_url)}`;
                     }
                 } else {
                     throw new Error(data.error || 'Failed to generate stream link');
