@@ -147,6 +147,28 @@
             font-weight: 500;
         }
 
+        /* Locked player buttons (VLC / MX / Infuse) */
+        .player-btn.locked {
+            cursor: not-allowed !important;
+            opacity: .4 !important;
+            position: relative;
+        }
+        .player-btn.locked::after {
+            content: "🔒";
+            position: absolute;
+            top: 6px;
+            right: 8px;
+            font-size: 13px;
+            line-height: 1;
+            filter: grayscale(.2);
+        }
+        .player-btn.locked:hover {
+            transform: none !important;
+            background: var(--panel-raised) !important;
+            border-color: var(--border) !important;
+            box-shadow: none !important;
+        }
+
         .hint {
             color: var(--muted);
             font-size: 11px;
@@ -321,6 +343,14 @@
     </div>
 
     <script>
+        // ══════════════════════════════════════════════════════════════════
+        //  EXTERNAL PLAYER LOCK
+        //  Set LOCK_EXTERNAL_PLAYERS = true  → VLC / Infuse / MX Player locked
+        //  Set LOCK_EXTERNAL_PLAYERS = false → all players work normally
+        //  Direct player is NEVER affected — it always works.
+        // ══════════════════════════════════════════════════════════════════
+        const LOCK_EXTERNAL_PLAYERS = true;
+
         // This block has no server-templated values in it, so it can never fail
         // to parse — theme detection must always run, even if the templated
         // block below gets served with an unfilled placeholder.
@@ -333,6 +363,9 @@
                 document.getElementById('stream-mode').style.display = 'none';
                 document.getElementById('download-mode').style.display = 'block';
                 startDownload();
+            } else {
+                // Apply the external-player lock as soon as the stream mode is shown.
+                applyExternalPlayerLock();
             }
         });
 
@@ -348,6 +381,27 @@
             <path d="M14.6 12.4c-2.1 1.8-3.3 4-3.3 6.3 0 3.4 2.7 6.1 6.1 6.1 1.6 0 3-.6 4.1-1.6-1 .5-2.1.8-3.3.8-3.6 0-6.5-2.9-6.5-6.5 0-1.9.8-3.6 2.1-4.8-.2-.1.3-.2.4-.3Z" fill="#7c3aed"/>
         </svg>`;
 
+        // Lock VLC + MX/Infuse buttons and update hint text accordingly.
+        function applyExternalPlayerLock() {
+            if (!LOCK_EXTERNAL_PLAYERS) return;
+
+            const secondaryBtn = document.getElementById('secondaryBtn');
+            const vlcBtn       = document.getElementById('vlcBtn');
+            const hint         = document.getElementById('playerHint');
+
+            [secondaryBtn, vlcBtn].forEach(btn => {
+                if (!btn) return;
+                btn.disabled = true;
+                btn.classList.add('locked');
+                btn.setAttribute('aria-disabled', 'true');
+                btn.title = 'This player is currently locked';
+            });
+
+            if (hint) {
+                hint.textContent = 'External players are temporarily locked. Direct player works normally.';
+            }
+        }
+
         function selectPlatform(platform) {
             selectedPlatform = platform;
             const isAndroid = platform === 'android';
@@ -361,12 +415,17 @@
             document.getElementById('secondaryIcon').innerHTML = isAndroid ? MX_ICON : INFUSE_ICON;
             document.getElementById('secondaryLabel').textContent = isAndroid ? 'MX Player' : 'Infuse';
 
-            document.getElementById('playerHint').textContent = isAndroid
-                ? 'Direct opens the built-in Android player.'
-                : 'VLC and Infuse open in their own app if installed — VLC may ask you to confirm playback once.';
+            // Only update the hint text when external players are NOT locked.
+            if (!LOCK_EXTERNAL_PLAYERS) {
+                document.getElementById('playerHint').textContent = isAndroid
+                    ? 'Direct opens the built-in Android player.'
+                    : 'VLC and Infuse open in their own app if installed — VLC may ask you to confirm playback once.';
+            }
         }
 
         function openSecondaryPlayer() {
+            // Safety net: block MX/Infuse if locked.
+            if (LOCK_EXTERNAL_PLAYERS) return;
             openPlayer(selectedPlatform === 'android' ? 'mx' : 'infuse');
         }
     </script>
@@ -375,6 +434,14 @@
         const accessCode = {{access_code_json}};
 
         async function openPlayer(player, retryCount = 0) {
+            // ══════════════════════════════════════════════════════════════
+            // Safety net: hard-block external players when locked.
+            // Only "direct" is allowed through.
+            // ══════════════════════════════════════════════════════════════
+            if (LOCK_EXTERNAL_PLAYERS && player !== 'direct') {
+                return;
+            }
+
             const isAndroid = selectedPlatform === 'android';
             if (player === 'mx' && !isAndroid) return;
             if (player === 'infuse' && isAndroid) return;
