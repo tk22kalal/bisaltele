@@ -70,9 +70,6 @@
             border-radius: 13px;
         }
 
-        /* Temporary lock: hides the platform switcher */
-        .platform-tabs.locked { display: none; }
-
         .platform-tab {
             align-items: center;
             background: transparent;
@@ -111,10 +108,6 @@
             grid-template-columns: repeat(3, minmax(0, 1fr));
             gap: 9px;
         }
-
-        /* Temporary lock: Direct takes the full width */
-        .player-grid.solo { grid-template-columns: minmax(0, 1fr); }
-        .player-grid.solo .player-btn { min-height: 96px; }
 
         .player-btn {
             align-items: center;
@@ -243,7 +236,7 @@
     <div class="container">
         <section class="choice-card" id="stream-mode" aria-label="Choose a streaming platform and player">
             <p class="eyebrow">Choose your device</p>
-            <div class="platform-tabs" id="platformTabs" role="tablist" aria-label="Platform">
+            <div class="platform-tabs" role="tablist" aria-label="Platform">
                 <button type="button" class="platform-tab active" id="androidTab" role="tab" aria-selected="true" onclick="selectPlatform('android')">
                     <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.1 8.1h9.8v8.2c0 .6-.5 1.1-1.1 1.1h-.7v2.2c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.2h-1.6v2.2c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.2h-.7c-.6 0-1.1-.5-1.1-1.1V8.1Zm-.9 1.1H5c-.6 0-1.1.5-1.1 1.1v4.6c0 .6.5 1.1 1.1 1.1h1.2V9.2Zm11.6 0H19c.6 0 1.1.5 1.1 1.1v4.6c0 .6-.5 1.1-1.1 1.1h-1.2V9.2ZM8.3 6.9a4.2 4.2 0 0 1 7.4 0l.9-1.2a.45.45 0 1 1 .7.5l-1 1.3c.4.4.6.9.6 1.5H7.1c0-.6.2-1.1.6-1.5l-1-1.3a.45.45 0 1 1 .7-.5l.9 1.2Zm1.3.6h.8v-.9h-.8v.9Zm4 0h.8v-.9h-.8v.9Z"/></svg>
                     ANDROID
@@ -255,7 +248,7 @@
             </div>
 
             <h2 class="section-title">Open with</h2>
-            <div class="player-grid" id="playerGrid">
+            <div class="player-grid">
                 <button type="button" class="player-btn" id="directBtn" onclick="openPlayer('direct')" aria-label="Open directly">
                     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path fill="currentColor" stroke="none" d="m10 8.2 6 3.8-6 3.8V8.2Z"/></svg>
                     <span>Direct</span>
@@ -328,13 +321,6 @@
     </div>
 
     <script>
-        // ===================================================================
-        // TEMPORARY LOCK — only "Direct" is shown.
-        // Set LOCK_DIRECT_ONLY = false to instantly bring back
-        // MX Player / VLC / Infuse and the platform tabs.
-        // ===================================================================
-        const LOCK_DIRECT_ONLY = true;
-
         // This block has no server-templated values in it, so it can never fail
         // to parse — theme detection must always run, even if the templated
         // block below gets served with an unfilled placeholder.
@@ -347,19 +333,8 @@
                 document.getElementById('stream-mode').style.display = 'none';
                 document.getElementById('download-mode').style.display = 'block';
                 startDownload();
-                return;
             }
-            if (LOCK_DIRECT_ONLY) applyDirectOnlyLock();
         });
-
-        function applyDirectOnlyLock() {
-            document.getElementById('platformTabs').classList.add('locked');
-            document.getElementById('secondaryBtn').style.display = 'none';
-            document.getElementById('vlcBtn').style.display = 'none';
-            document.getElementById('playerGrid').classList.add('solo');
-            document.getElementById('playerHint').textContent =
-                'Direct opens the built-in player. Other players are temporarily unavailable.';
-        }
 
         const MX_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
             <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
@@ -374,7 +349,6 @@
         </svg>`;
 
         function selectPlatform(platform) {
-            if (LOCK_DIRECT_ONLY) return;
             selectedPlatform = platform;
             const isAndroid = platform === 'android';
             document.getElementById('androidTab').classList.toggle('active', isAndroid);
@@ -393,7 +367,6 @@
         }
 
         function openSecondaryPlayer() {
-            if (LOCK_DIRECT_ONLY) return;
             openPlayer(selectedPlatform === 'android' ? 'mx' : 'infuse');
         }
     </script>
@@ -402,9 +375,6 @@
         const accessCode = {{access_code_json}};
 
         async function openPlayer(player, retryCount = 0) {
-            // Hard guard: while locked, only the Direct player can be launched.
-            if (LOCK_DIRECT_ONLY && player !== 'direct') return;
-
             const isAndroid = selectedPlatform === 'android';
             if (player === 'mx' && !isAndroid) return;
             if (player === 'infuse' && isAndroid) return;
