@@ -7,147 +7,286 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{file_name}} - Generate Stream</title>
     <style>
+        :root {
+            --accent: #2c5282;
+            --accent-dark: #1a365d;
+            --accent-soft: rgba(44, 82, 130, .1);
+            --text: #1f2937;
+            --muted: #64748b;
+            --panel: #ffffff;
+            --panel-raised: #f1f5f9;
+            --border: #e2e8f0;
+            --card-shadow: 0 10px 26px rgba(44, 62, 90, .08);
+            --btn-hover-shadow: 0 5px 12px rgba(44, 82, 130, .12);
+        }
+
+        * { box-sizing: border-box; }
+
         body {
-            background: white;
-            font-family: Arial, sans-serif;
+            background: var(--panel-raised);
+            color: var(--text);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             margin: 0;
             min-height: 100vh;
+            height: 100vh;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 20px;
+            padding: clamp(10px, 3vw, 28px);
+            transition: background .2s;
         }
 
         .container {
+            width: min(100%, 430px);
+            max-height: 100%;
             text-align: center;
-            max-width: 500px;
-            width: 100%;
         }
 
-        .player-buttons {
-            display: flex;
-            gap: 20px;
-            justify-content: center;
-            flex-wrap: wrap;
-            margin-bottom: 20px;
+        .choice-card {
+            background: var(--panel);
+            border: 1px solid var(--border);
+            border-radius: 18px;
+            padding: clamp(13px, 3.4vw, 20px);
+            box-shadow: var(--card-shadow);
         }
+
+        .eyebrow {
+            color: var(--muted);
+            font-size: 11px;
+            font-weight: 700;
+            letter-spacing: .12em;
+            margin: 0 0 12px;
+            text-transform: uppercase;
+        }
+
+        .platform-tabs {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 4px;
+            background: var(--panel-raised);
+            border-radius: 13px;
+        }
+
+        /* Temporary lock: hides the platform switcher */
+        .platform-tabs.locked { display: none; }
+
+        .platform-tab {
+            align-items: center;
+            background: transparent;
+            border: 1px solid transparent;
+            border-radius: 9px;
+            color: var(--muted);
+            cursor: pointer;
+            display: flex;
+            font: inherit;
+            font-size: 13px;
+            font-weight: 700;
+            gap: 8px;
+            justify-content: center;
+            min-height: 38px;
+            padding: 7px 10px;
+            transition: background .2s, border-color .2s, color .2s, transform .2s;
+        }
+
+        .platform-tab svg { width: 19px; height: 19px; }
+        .platform-tab:hover { color: var(--text); }
+        .platform-tab.active {
+            background: var(--accent);
+            border-color: rgba(255, 255, 255, .16);
+            color: #fff;
+            box-shadow: 0 5px 12px rgba(44, 82, 130, .3);
+        }
+
+        .section-title {
+            color: var(--text);
+            font-size: 14px;
+            margin: 0 0 9px;
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 9px;
+        }
+
+        /* Temporary lock: Direct takes the full width */
+        .player-grid.solo { grid-template-columns: minmax(0, 1fr); }
+        .player-grid.solo .player-btn { min-height: 96px; }
 
         .player-btn {
-            background: #2c5282;
-            color: white;
-            border: none;
-            width: 180px;
-            height: 60px;
-            font-size: 16px;
-            font-weight: 600;
-            border-radius: 8px;
+            align-items: center;
+            background: var(--panel-raised);
+            border: 1px solid var(--border);
+            border-radius: 13px;
+            color: var(--text);
             cursor: pointer;
-            transition: all 0.3s ease;
-        }
-
-        .player-btn:hover { background: #1a365d; }
-        .player-btn:disabled { background: #ccc; cursor: not-allowed; }
-
-        /* Download manager buttons */
-        .dm-buttons {
-            display: none;
+            display: flex;
             flex-direction: column;
-            align-items: center;
-            gap: 10px;
-            margin-top: 20px;
-        }
-
-        @media (min-width: 480px) {
-            .dm-buttons { flex-direction: row; justify-content: center; }
-        }
-
-        .dm-btn {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            gap: 7px;
-            padding: 10px 22px;
-            font-size: 15px;
-            font-weight: 600;
-            border-radius: 8px;
-            border: none;
-            cursor: pointer;
-            text-decoration: none;
-            transition: background 0.3s, transform 0.15s, opacity 0.2s;
-            white-space: nowrap;
-            min-width: 120px;
-            color: #fff;
-            background: #2c5282;
-        }
-
-        .dm-btn:hover  { background: #1a365d; transform: translateY(-1px); }
-        .dm-btn:active { transform: scale(0.97); }
-        .dm-btn.loading-btn {
-            opacity: 0.6;
-            cursor: wait;
-            pointer-events: none;
-        }
-
-        .dm-label {
+            font: inherit;
             font-size: 12px;
-            color: #888;
-            margin-top: 8px;
+            font-weight: 700;
+            gap: 8px;
+            justify-content: center;
+            min-height: 82px;
+            padding: 9px 5px;
+            transition: border-color .2s, background .2s, color .2s, transform .2s, opacity .2s, box-shadow .2s;
+        }
+
+        .player-btn svg { height: 31px; width: 31px; }
+        .player-btn:hover:not(:disabled) {
+            background: var(--accent-soft);
+            border-color: var(--accent);
+            box-shadow: var(--btn-hover-shadow);
+            transform: translateY(-2px);
+        }
+        .player-btn:active:not(:disabled) { transform: scale(.97); }
+        .player-btn:disabled { cursor: wait; opacity: .45; }
+        .player-btn.unavailable {
+            cursor: not-allowed;
+            opacity: .38;
+        }
+        .player-btn.unavailable small {
+            color: var(--muted);
+            font-size: 9px;
+            font-weight: 500;
+        }
+
+        .hint {
+            color: var(--muted);
+            font-size: 11px;
+            margin: 11px 0 0;
         }
 
         .loading {
             display: none;
-            margin-top: 30px;
+            margin-top: 18px;
         }
 
         .spinner {
-            border: 4px solid #f3f3f3;
-            border-top: 4px solid #2c5282;
+            border: 3px solid rgba(148, 163, 184, .22);
             border-radius: 50%;
-            width: 40px;
-            height: 40px;
+            border-top-color: var(--accent);
+            height: 29px;
+            margin: 0 auto 9px;
+            width: 29px;
             animation: spin 1s linear infinite;
-            margin: 10px auto;
         }
 
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
         .loading-text {
-            color: #2c5282;
+            color: var(--muted);
+            font-size: 12px;
             font-weight: 600;
-            margin-top: 10px;
+            margin: 0;
         }
 
         .status-message {
-            margin-top: 20px;
-            padding: 15px;
-            border-radius: 10px;
+            border-radius: 9px;
             display: none;
-            font-size: 14px;
-            font-weight: 500;
+            font-size: 12px;
+            font-weight: 600;
+            margin-top: 14px;
+            padding: 10px;
         }
 
-        .success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
-        .error   { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
-        .warning { background: #fff3cd; color: #856404; border: 1px solid #ffeaa7; }
+        .success { background: rgba(34, 197, 94, .14); color: #4ade80; border: 1px solid rgba(74, 222, 128, .3); }
+        .error   { background: rgba(239, 68, 68, .14); color: #f87171; border: 1px solid rgba(248, 113, 113, .3); }
+        .warning { background: rgba(234, 179, 8, .14); color: #facc15; border: 1px solid rgba(250, 204, 21, .3); }
 
-        @media (max-width: 480px) {
-            .player-btn { width: 140px; height: 55px; font-size: 14px; }
-            .dm-btn { width: 160px; font-size: 14px; }
+        /* Download mode keeps the existing download-manager choices. */
+        .dm-buttons {
+            display: none;
+            flex-wrap: wrap;
+            gap: 9px;
+            justify-content: center;
+            margin-top: 16px;
+        }
+
+        .dm-btn {
+            align-items: center;
+            background: var(--accent);
+            border: 0;
+            border-radius: 9px;
+            color: #fff;
+            cursor: pointer;
+            display: inline-flex;
+            font: inherit;
+            font-size: 12px;
+            font-weight: 700;
+            gap: 6px;
+            justify-content: center;
+            min-width: 98px;
+            padding: 10px 13px;
+            text-decoration: none;
+            transition: background .2s, transform .15s;
+        }
+        .dm-btn:hover { background: var(--accent-dark); transform: translateY(-1px); }
+        .dm-btn:active { transform: scale(.97); }
+        .dm-label { color: var(--muted); font-size: 10px; margin: 9px 0 0; }
+
+        #download-mode { display: none; }
+        #download-mode .eyebrow { margin-bottom: 5px; }
+
+        @media (max-width: 350px) {
+            body { padding: 8px; }
+            .choice-card { padding: 12px 10px; }
+            .player-btn { min-height: 74px; }
+            .player-btn { font-size: 11px; }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <div class="player-buttons">
-            <button type="button" class="player-btn" id="plyrBtn"    onclick="generateStream('plyr')"    aria-label="Stream IOS/PC">IOS/PC</button>
-            <button type="button" class="player-btn" id="videojsBtn" onclick="generateStream('videojs')" aria-label="Stream ANDROID">ANDROID</button>
-        </div>
+        <section class="choice-card" id="stream-mode" aria-label="Choose a streaming platform and player">
+            <p class="eyebrow">Choose your device</p>
+            <div class="platform-tabs" id="platformTabs" role="tablist" aria-label="Platform">
+                <button type="button" class="platform-tab active" id="androidTab" role="tab" aria-selected="true" onclick="selectPlatform('android')">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7.1 8.1h9.8v8.2c0 .6-.5 1.1-1.1 1.1h-.7v2.2c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.2h-1.6v2.2c0 .5-.4.9-.9.9s-.9-.4-.9-.9v-2.2h-.7c-.6 0-1.1-.5-1.1-1.1V8.1Zm-.9 1.1H5c-.6 0-1.1.5-1.1 1.1v4.6c0 .6.5 1.1 1.1 1.1h1.2V9.2Zm11.6 0H19c.6 0 1.1.5 1.1 1.1v4.6c0 .6-.5 1.1-1.1 1.1h-1.2V9.2ZM8.3 6.9a4.2 4.2 0 0 1 7.4 0l.9-1.2a.45.45 0 1 1 .7.5l-1 1.3c.4.4.6.9.6 1.5H7.1c0-.6.2-1.1.6-1.5l-1-1.3a.45.45 0 1 1 .7-.5l.9 1.2Zm1.3.6h.8v-.9h-.8v.9Zm4 0h.8v-.9h-.8v.9Z"/></svg>
+                    ANDROID
+                </button>
+                <button type="button" class="platform-tab" id="iosTab" role="tab" aria-selected="false" onclick="selectPlatform('ios')">
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M16.8 12.7c0-2 1.6-3 1.7-3.1-.9-1.3-2.3-1.5-2.8-1.5-1.2-.1-2.4.8-3 .8-.6 0-1.5-.8-2.5-.8-1.3 0-2.5.8-3.2 2-.1.2-1.3 2.2-.3 4.7.5 1.2 1.1 2.5 2 2.5.8 0 1.1-.5 2.1-.5s1.3.5 2.1.5c.9 0 1.5-1.2 2-2.4.4-.6.6-1.4.7-2.2Zm-2-5.8c.5-.6.8-1.4.7-2.2-.7 0-1.5.5-2 .9-.4.5-.8 1.3-.7 2.1.8.1 1.5-.3 2-.8Z"/></svg>
+                    IOS
+                </button>
+            </div>
 
-        <!-- Download manager buttons (shown after link is generated) -->
-        <div class="dm-buttons" id="dmButtons">
+            <h2 class="section-title">Open with</h2>
+            <div class="player-grid" id="playerGrid">
+                <button type="button" class="player-btn" id="directBtn" onclick="openPlayer('direct')" aria-label="Open directly">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><circle cx="12" cy="12" r="9.2"/><path fill="currentColor" stroke="none" d="m10 8.2 6 3.8-6 3.8V8.2Z"/></svg>
+                    <span>Direct</span>
+                </button>
+                <button type="button" class="player-btn" id="secondaryBtn" onclick="openSecondaryPlayer()" aria-label="Open in MX Player">
+                    <span id="secondaryIcon">
+                        <svg viewBox="0 0 32 32" aria-hidden="true">
+                            <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
+                            <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
+                            <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
+                            <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
+                        </svg>
+                    </span>
+                    <span id="secondaryLabel">MX Player</span>
+                </button>
+                <button type="button" class="player-btn" id="vlcBtn" onclick="openPlayer('vlc')" aria-label="Open in VLC">
+                    <svg viewBox="0 0 32 32" aria-hidden="true">
+                        <rect x="3.5" y="25.5" width="25" height="4.2" rx="1.3" fill="#4a4a4a"/>
+                        <path d="M15.3 3.4h1.4l6.9 20-7.6 1.8-7.6-1.8 6.9-20Z" fill="#f7941e"/>
+                        <path d="M12.85 10.1h6.3l1.25 3.55h-8.8l1.25-3.55Z" fill="#fff"/>
+                        <path d="M10.85 15.9h10.3l1.25 3.55H9.6l1.25-3.55Z" fill="#fff"/>
+                    </svg>
+                    <span>VLC</span>
+                </button>
+            </div>
+            <p class="hint" id="playerHint">Direct opens the built-in Android player.</p>
+        </section>
+
+        <section class="choice-card" id="download-mode" aria-label="Choose a download method">
+            <p class="eyebrow">Choose how to download</p>
+            <div class="dm-buttons" id="dmButtons">
             <!-- Direct -->
             <a id="btnDirect" class="dm-btn" href="#" download>
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
@@ -176,8 +315,9 @@
                 </svg>
                 Readdle
             </a>
-        </div>
-        <p class="dm-label" id="dmLabel"></p>
+            </div>
+            <p class="dm-label" id="dmLabel"></p>
+        </section>
 
         <div class="loading">
             <div class="spinner"></div>
@@ -188,27 +328,98 @@
     </div>
 
     <script>
+        // ===================================================================
+        // TEMPORARY LOCK — only "Direct" is shown.
+        // Set LOCK_DIRECT_ONLY = false to instantly bring back
+        // MX Player / VLC / Infuse and the platform tabs.
+        // ===================================================================
+        const LOCK_DIRECT_ONLY = true;
+
+        // This block has no server-templated values in it, so it can never fail
+        // to parse — theme detection must always run, even if the templated
+        // block below gets served with an unfilled placeholder.
         const urlParams = new URLSearchParams(window.location.search);
         const linkType  = urlParams.get('type');
-        const accessCode = {{access_code_json}};
+        let selectedPlatform = 'android';
 
         window.addEventListener('DOMContentLoaded', () => {
             if (linkType === 'download') {
-                document.querySelector('.player-buttons').style.display = 'none';
+                document.getElementById('stream-mode').style.display = 'none';
+                document.getElementById('download-mode').style.display = 'block';
                 startDownload();
+                return;
             }
+            if (LOCK_DIRECT_ONLY) applyDirectOnlyLock();
         });
 
-        async function generateStream(playerType, retryCount = 0) {
-            const buttons     = document.querySelectorAll('.player-btn');
+        function applyDirectOnlyLock() {
+            document.getElementById('platformTabs').classList.add('locked');
+            document.getElementById('secondaryBtn').style.display = 'none';
+            document.getElementById('vlcBtn').style.display = 'none';
+            document.getElementById('playerGrid').classList.add('solo');
+            document.getElementById('playerHint').textContent =
+                'Direct opens the built-in player. Other players are temporarily unavailable.';
+        }
+
+        const MX_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
+            <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
+            <path d="M8.2 23V9h3.9l3.4 8 .5 1.3V23H8.2Z" fill="#ef4a3f"/>
+            <path d="M23.8 23V9h-3.9l-3.4 8-.5 1.3V23h7.8Z" fill="#12c4c0"/>
+        </svg>`;
+        const INFUSE_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
+            <rect x="1" y="1" width="30" height="30" rx="9" fill="#1a1a1a"/>
+            <path d="M16 6c2.6 3 3.6 5.4 3.6 7.6 0 1.4-.6 2.4-1.6 2.4-1 0-1.5-.7-1.5-1.6 0-1 .5-1.7 1.1-2.5-1.7.4-2.9 2-2.9 4 0 2.4 2 4.4 4.4 4.4 2.6 0 4.7-2.1 4.7-4.9C23.8 11.6 20.8 8 16 6Z" fill="#c026d3"/>
+            <path d="M14.6 12.4c-2.1 1.8-3.3 4-3.3 6.3 0 3.4 2.7 6.1 6.1 6.1 1.6 0 3-.6 4.1-1.6-1 .5-2.1.8-3.3.8-3.6 0-6.5-2.9-6.5-6.5 0-1.9.8-3.6 2.1-4.8-.2-.1.3-.2.4-.3Z" fill="#7c3aed"/>
+        </svg>`;
+
+        function selectPlatform(platform) {
+            if (LOCK_DIRECT_ONLY) return;
+            selectedPlatform = platform;
+            const isAndroid = platform === 'android';
+            document.getElementById('androidTab').classList.toggle('active', isAndroid);
+            document.getElementById('iosTab').classList.toggle('active', !isAndroid);
+            document.getElementById('androidTab').setAttribute('aria-selected', String(isAndroid));
+            document.getElementById('iosTab').setAttribute('aria-selected', String(!isAndroid));
+
+            const secondaryBtn = document.getElementById('secondaryBtn');
+            secondaryBtn.setAttribute('aria-label', isAndroid ? 'Open in MX Player' : 'Open in Infuse');
+            document.getElementById('secondaryIcon').innerHTML = isAndroid ? MX_ICON : INFUSE_ICON;
+            document.getElementById('secondaryLabel').textContent = isAndroid ? 'MX Player' : 'Infuse';
+
+            document.getElementById('playerHint').textContent = isAndroid
+                ? 'Direct opens the built-in Android player.'
+                : 'VLC and Infuse open in their own app if installed — VLC may ask you to confirm playback once.';
+        }
+
+        function openSecondaryPlayer() {
+            if (LOCK_DIRECT_ONLY) return;
+            openPlayer(selectedPlatform === 'android' ? 'mx' : 'infuse');
+        }
+    </script>
+    <script>
+        // Server-templated values live here in isolation.
+        const accessCode = {{access_code_json}};
+
+        async function openPlayer(player, retryCount = 0) {
+            // Hard guard: while locked, only the Direct player can be launched.
+            if (LOCK_DIRECT_ONLY && player !== 'direct') return;
+
+            const isAndroid = selectedPlatform === 'android';
+            if (player === 'mx' && !isAndroid) return;
+            if (player === 'infuse' && isAndroid) return;
+
+            const buttons     = document.querySelectorAll('.player-btn, .platform-tab');
             const loading     = document.querySelector('.loading');
             const statusMsg   = document.getElementById('statusMessage');
             const loadingText = document.getElementById('loadingText');
+            const playerType  = isAndroid ? 'videojs' : 'plyr';
+            const playerNames = { direct: 'Direct', mx: 'MX Player', vlc: 'VLC', infuse: 'Infuse' };
 
             buttons.forEach(b => b.disabled = true);
             loading.style.display = 'block';
             statusMsg.style.display = 'none';
-            loadingText.textContent = `Generating ${playerType === 'plyr' ? 'IOS/PC' : 'ANDROID'} stream link...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
+            loadingText.textContent = `Preparing ${playerNames[player]}...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
 
             try {
                 const controller = new AbortController();
@@ -228,10 +439,24 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    statusMsg.className = 'status-message success';
-                    statusMsg.textContent = '✅ Stream link generated! Redirecting...';
-                    statusMsg.style.display = 'block';
-                    setTimeout(() => window.location.href = data.stream_url, 1500);
+                    if (player === 'direct') {
+                        statusMsg.className = 'status-message success';
+                        statusMsg.textContent = 'Opening the built-in player...';
+                        statusMsg.style.display = 'block';
+                        setTimeout(() => window.location.href = data.stream_url, 350);
+                    } else if (isAndroid) {
+                        // Android: MX Player / VLC via intent://
+                        window.location.href = buildIntentUrl(data.stream_url, player === 'mx'
+                            ? 'com.mxtech.videoplayer.ad'
+                            : 'org.videolan.vlc');
+                    } else if (player === 'vlc') {
+                        // VLC for iOS: vlc://<full stream url, own scheme included>.
+                        // VLC may show a one-tap "Play/Download" confirmation before it starts.
+                        window.location.href = 'vlc://' + data.stream_url;
+                    } else if (player === 'infuse') {
+                        // Infuse's documented x-callback-url API (Firecore): starts playback directly.
+                        window.location.href = `infuse://x-callback-url/play?url=${encodeURIComponent(data.stream_url)}`;
+                    }
                 } else {
                     throw new Error(data.error || 'Failed to generate stream link');
                 }
@@ -242,7 +467,7 @@
                     statusMsg.className = 'status-message warning';
                     statusMsg.textContent = `⏳ Retrying in ${Math.round(delay / 1000)}s... (${retryCount + 1}/${maxRetries})`;
                     statusMsg.style.display = 'block';
-                    setTimeout(() => generateStream(playerType, retryCount + 1), delay);
+                    setTimeout(() => openPlayer(player, retryCount + 1), delay);
                     return;
                 }
                 statusMsg.className = 'status-message error';
@@ -253,13 +478,25 @@
             }
         }
 
+        function buildIntentUrl(url, packageName) {
+            const parsed = new URL(url, window.location.href);
+            const scheme = parsed.protocol.replace(':', '');
+            // /watch/ is an HTML player page. External Android players need the
+            // same signed media URL without the /watch/ wrapper or player query.
+            if (parsed.pathname.startsWith('/watch/')) {
+                parsed.pathname = parsed.pathname.replace(/^\/watch\//, '/');
+            }
+            parsed.searchParams.delete('player');
+            const target = parsed.host + parsed.pathname + parsed.search;
+            return `intent://${target}#Intent;scheme=${scheme};package=${packageName};end`;
+        }
+
         async function startDownload(retryCount = 0) {
-            const buttons     = document.querySelectorAll('.player-btn');
+            const buttons     = document.querySelectorAll('.dm-btn');
             const loading     = document.querySelector('.loading');
             const statusMsg   = document.getElementById('statusMessage');
             const loadingText = document.getElementById('loadingText');
 
-            buttons.forEach(b => b.disabled = true);
             loading.style.display = 'block';
             statusMsg.style.display = 'none';
             loadingText.textContent = `Generating download link...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
@@ -285,7 +522,7 @@
                     statusMsg.className = 'status-message success';
                     statusMsg.textContent = '✅ Choose how to download:';
                     statusMsg.style.display = 'block';
-                    buttons.forEach(b => b.disabled = false);
+                     buttons.forEach(b => b.classList.remove('loading-btn'));
 
                     // Build intent URLs
                     const url = data.download_url;
@@ -300,7 +537,7 @@
                     document.getElementById('btnIdm').href     = 'intent://' + stripped + '#Intent;scheme=' + scheme + ';package=idm.internet.download.manager;end';
                     document.getElementById('btnReaddle').href = rScheme + '://' + stripped;
 
-                    document.getElementById('dmButtons').style.display = 'flex';
+                document.getElementById('dmButtons').style.display = 'flex';
                     document.getElementById('dmLabel').textContent = 'ADM & IDM: Android  •  Readdle: iOS';
                 } else {
                     throw new Error(data.error || 'Failed to generate download link');
@@ -318,7 +555,7 @@
                 statusMsg.className = 'status-message error';
                 statusMsg.textContent = '❌ ' + (error.name === 'AbortError' ? 'Request timed out. Please try again.' : error.message);
                 statusMsg.style.display = 'block';
-                buttons.forEach(b => b.disabled = false);
+                buttons.forEach(b => b.classList.remove('loading-btn'));
                 loading.style.display = 'none';
             }
         }
