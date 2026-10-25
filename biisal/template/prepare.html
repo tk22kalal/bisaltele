@@ -369,6 +369,15 @@
             }
         });
 
+        // Reset UI when the page is restored via Back (bfcache) so it never looks stuck.
+        window.addEventListener('pageshow', (e) => {
+            if (!e.persisted) return;
+            document.querySelectorAll('.player-btn, .platform-tab').forEach(b => b.disabled = false);
+            const loading = document.querySelector('.loading');
+            if (loading) loading.style.display = 'none';
+            applyExternalPlayerLock();
+        });
+
         const MX_ICON = `<svg viewBox="0 0 32 32" aria-hidden="true">
             <rect x="1" y="1" width="30" height="30" rx="9" fill="#131313"/>
             <path d="M8 23V9h4l4 8 4-8h4v14h-3v-9l-3.5 7h-3L11 14v9H8Z" fill="#fff" opacity=".12"/>
@@ -475,12 +484,21 @@
                 if (!ct.includes('application/json')) throw new Error('Server returned non-JSON response. Please try again.');
 
                 const data = await response.json();
+                if (!data.success && (response.status === 429 || response.status >= 500)) {
+                    const e = new Error(data.error || 'Server busy');
+                    e.name = 'RetryableError';
+                    throw e;
+                }
                 if (data.success) {
                     if (player === 'direct') {
+                        loading.style.display = 'none';
                         statusMsg.className = 'status-message success';
-                        statusMsg.textContent = 'Opening the built-in player...';
+                        statusMsg.innerHTML = 'Opening the built-in player... <a id="directFallbackLink" style="color:inherit;text-decoration:underline">Tap here if it does not open</a>';
+                        document.getElementById('directFallbackLink').href = data.stream_url;
                         statusMsg.style.display = 'block';
-                        setTimeout(() => window.location.href = data.stream_url, 350);
+                        buttons.forEach(b => b.disabled = false);
+                        applyExternalPlayerLock();
+                        setTimeout(() => window.location.assign(data.stream_url), 350);
                     } else if (isAndroid) {
                         // Android: MX Player / VLC via intent://
                         window.location.href = buildIntentUrl(data.stream_url, player === 'mx'
@@ -500,7 +518,8 @@
             } catch (error) {
                 const maxRetries = 5;
                 const delay = Math.min(2000 * Math.pow(1.5, retryCount), 10000);
-                if ((error.name === 'AbortError' || error.message.includes('JSON')) && retryCount < maxRetries) {
+                const retryable = error.name === 'AbortError' || error.name === 'RetryableError' || error.name === 'TypeError' || error.message.includes('JSON');
+                if (retryable && retryCount < maxRetries) {
                     statusMsg.className = 'status-message warning';
                     statusMsg.textContent = `⏳ Retrying in ${Math.round(delay / 1000)}s... (${retryCount + 1}/${maxRetries})`;
                     statusMsg.style.display = 'block';
@@ -511,6 +530,7 @@
                 statusMsg.textContent = '❌ ' + (error.name === 'AbortError' ? 'Request timed out. Please try again.' : error.message);
                 statusMsg.style.display = 'block';
                 buttons.forEach(b => b.disabled = false);
+                applyExternalPlayerLock();
                 loading.style.display = 'none';
             }
         }
@@ -554,6 +574,11 @@
                 if (!ct.includes('application/json')) throw new Error('Server returned non-JSON response. Please try again.');
 
                 const data = await response.json();
+                if (!data.success && (response.status === 429 || response.status >= 500)) {
+                    const e = new Error(data.error || 'Server busy');
+                    e.name = 'RetryableError';
+                    throw e;
+                }
                 if (data.success) {
                     loading.style.display = 'none';
                     statusMsg.className = 'status-message success';
@@ -582,7 +607,8 @@
             } catch (error) {
                 const maxRetries = 5;
                 const delay = Math.min(2000 * Math.pow(1.5, retryCount), 10000);
-                if ((error.name === 'AbortError' || error.message.includes('JSON')) && retryCount < maxRetries) {
+                const retryable = error.name === 'AbortError' || error.name === 'RetryableError' || error.name === 'TypeError' || error.message.includes('JSON');
+                if (retryable && retryCount < maxRetries) {
                     statusMsg.className = 'status-message warning';
                     statusMsg.textContent = `⏳ Retrying in ${Math.round(delay / 1000)}s... (${retryCount + 1}/${maxRetries})`;
                     statusMsg.style.display = 'block';
