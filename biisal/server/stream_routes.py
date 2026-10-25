@@ -691,7 +691,11 @@ async def deliver_to_user_bot_handler(request: web.Request):
             )
 
         # Record for restart-proof 24h auto-delete (TTL sweeper).
-        bot_id, _ = await telegram_delivery.get_bot_identity(config["bot_token"])
+        try:
+            bot_id, _ = await telegram_delivery.get_bot_identity(config["bot_token"])
+        except Exception:  # noqa: BLE001
+            bot_id = None
+
         await autodelete.record_delivery(
             config["bot_token"], bot_id, chat_id, deliver_result,
             temp_data.get('file_name'),
