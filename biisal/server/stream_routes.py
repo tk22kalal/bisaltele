@@ -286,26 +286,41 @@ async def generate_stream_handler(request: web.Request):
         lecture_key = lecture_key_for(temp_data)
 
         client = StreamBot
-        original_msg = await client.get_messages(temp_data['from_chat_id'], temp_data['message_id'])
+        try:
+            original_msg = await asyncio.wait_for(
+                client.get_messages(temp_data['from_chat_id'], temp_data['message_id']),
+                10
+            )
+        except asyncio.TimeoutError:
+            return web.json_response(
+                {"success": False, "error": "Server is busy. Please try again in a few seconds."},
+                status=503,
+                content_type='application/json'
+            )
         if not original_msg:
             return web.json_response(
                 {"success": False, "error": "Original message not found"},
                 status=404,
                 content_type='application/json'
             )
-
         max_retries = 3
         log_msg = None
         for attempt in range(max_retries):
             try:
-                log_msg = await original_msg.copy(
+                log_msg = await asyncio.wait_for(original_msg.copy(
                     chat_id=Var.BIN_CHANNEL,
                     caption=temp_data['caption'][:1024],
                     parse_mode=ParseMode.HTML
-                )
+                ), 15)
                 break
+            except asyncio.TimeoutError:
+                return web.json_response(
+                    {"success": False, "error": "Server is busy. Please try again in a few seconds."},
+                    status=503,
+                    content_type='application/json'
+                )
             except FloodWait as e:
-                if attempt < max_retries - 1:
+                if attempt < max_retries - 1 and e.value <= 10:
                     await asyncio.sleep(e.value)
                 else:
                     return web.json_response(
@@ -436,26 +451,41 @@ async def generate_download_handler(request: web.Request):
         lecture_key = lecture_key_for(temp_data)
 
         client = StreamBot
-        original_msg = await client.get_messages(temp_data['from_chat_id'], temp_data['message_id'])
+        try:
+            original_msg = await asyncio.wait_for(
+                client.get_messages(temp_data['from_chat_id'], temp_data['message_id']),
+                10
+            )
+        except asyncio.TimeoutError:
+            return web.json_response(
+                {"success": False, "error": "Server is busy. Please try again in a few seconds."},
+                status=503,
+                content_type='application/json'
+            )
         if not original_msg:
             return web.json_response(
                 {"success": False, "error": "Original message not found"},
                 status=404,
                 content_type='application/json'
             )
-
         max_retries = 3
         log_msg = None
         for attempt in range(max_retries):
             try:
-                log_msg = await original_msg.copy(
+                log_msg = await asyncio.wait_for(original_msg.copy(
                     chat_id=Var.BIN_CHANNEL,
                     caption=temp_data['caption'][:1024],
                     parse_mode=ParseMode.HTML
-                )
+                ), 15)
                 break
+            except asyncio.TimeoutError:
+                return web.json_response(
+                    {"success": False, "error": "Server is busy. Please try again in a few seconds."},
+                    status=503,
+                    content_type='application/json'
+                )
             except FloodWait as e:
-                if attempt < max_retries - 1:
+                if attempt < max_retries - 1 and e.value <= 10:
                     await asyncio.sleep(e.value)
                 else:
                     return web.json_response(
