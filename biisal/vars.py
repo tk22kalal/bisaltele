@@ -68,8 +68,12 @@ class Var(object):
     AUTODEL_DB_URI = str(getenv('AUTODEL_DB_URI', ''))
     AUTODEL_MAX_LECTURES = int(getenv('AUTODEL_MAX_LECTURES', '0'))
     AUTODEL_TTL_HOURS = int(getenv('AUTODEL_TTL_HOURS', '24'))
-    TELEGRAM_DAILY_LECTURE_LIMIT = int(getenv('TELEGRAM_DAILY_LECTURE_LIMIT', '15'))
-
+    AUTODEL_SCAN_HOURS = [
+        int(x)
+        for x in getenv('AUTODEL_SCAN_HOURS', '3 5').replace(',', ' ').split()
+        if x.isdigit() and int(x) < 24
+    ]
+    TELEGRAM_DAILY_LECTURE_LIMIT = int(getenv('TELEGRAM_DAILY_LECTURE_LIMIT', '5'))
     @classmethod
     def get_fqdn(cls):
         if cls.SERVE_DOMAIN == 'web':
