@@ -23,20 +23,6 @@ class SupabaseQuota:
         self.key = os.getenv("SUPABASE_KEY", "")
         self.connector_host = os.getenv("REPLIT_CONNECTORS_HOSTNAME", "").strip()
         self.replit_identity = os.getenv("REPL_IDENTITY", "").strip()
-        self.download_limit = self._int_env("MEDIA_DOWNLOAD_DAILY_LIMIT", 5)
-        self.stream_limit = self._int_env("MEDIA_STREAM_DAILY_LIMIT", 10)
-        self.max_active_downloads = self._int_env(
-            "MEDIA_MAX_ACTIVE_DOWNLOADS_PER_USER", 3
-        )
-        self.max_active_streams = self._int_env(
-            "MEDIA_MAX_ACTIVE_STREAMS_PER_USER", 1
-        )
-        self.max_active_requests_global = self._int_env(
-            "MEDIA_MAX_ACTIVE_REQUESTS_GLOBAL", 0, minimum=0
-        )
-        self.max_transfer_bytes_per_second = self._int_env(
-            "MEDIA_MAX_TRANSFER_BYTES_PER_SECOND", 0, minimum=0
-        )
         self.final_link_ttl_seconds = self._int_env(
             "MEDIA_FINAL_LINK_TTL_SECONDS", 6 * 60 * 60
         )
@@ -56,9 +42,7 @@ class SupabaseQuota:
             os.getenv("MEDIA_LINK_SIGNING_SECRET", "").strip()
             or os.getenv("SESSION_SECRET", "").strip()
         )
-        self._active = defaultdict(lambda: {"download": 0, "stream": 0})
-        self._global_active = 0
-        self._active_lock = asyncio.Lock()
+        self._code_cache = {}
 
     @staticmethod
     def _int_env(name: str, default: int, minimum: int = 1) -> int:
@@ -66,6 +50,18 @@ class SupabaseQuota:
             return max(minimum, int(os.getenv(name, str(default))))
         except (TypeError, ValueError):
             return default
+
+    @property
+    def download_limit(self) -> int:
+        return self._int_env("MEDIA_DOWNLOAD_DAILY_LIMIT", 0, minimum=0)  # 0/empty = unlimited
+
+    @property
+    def stream_limit(self) -> int:
+        return self._int_env("MEDIA_STREAM_DAILY_LIMIT", 0, minimum=0)
+
+    @property
+    def max_transfer_bytes_per_second(self) -> int:
+        return self._int_env("MEDIA_MAX_TRANSFER_BYTES_PER_SECOND", 0, minimum=0)
 
     @property
     def enabled(self) -> bool:
@@ -145,20 +141,28 @@ class SupabaseQuota:
             return None, "Supabase quota service is unavailable"
 
     async def _resolve_code(self, code: str):
-        result, error = await self._rpc(
-            "resolve_media_access_code",
-            {"p_code": code},
-        )
+        cached = self._code_cache.get(code)
+        if cached and cached[1] > time.time():
+            return cached[0], None, None
+
+        result, error = await self._rpc("resolve_media_access_code", {"p_code": code})
         if error:
-            return None, error, 503
+            # Never block users when Supabase is down/over quota.
+            if cached:
+                return cached[0], None, None
+            fallback = "code:" + hashlib.sha256(code.encode()).hexdigest()[:32]
+            logger.warning("Supabase unavailable, allowing code with fallback id")
+            return fallback, None, None
 
         result = _first_object(result)
         if not result or not result.get("valid"):
             return None, "This link is invalid or has expired.", 403
-
         user_id = result.get("user_id")
         if not user_id:
             return None, "This link is not assigned to a user.", 403
+        if len(self._code_cache) > 20000:
+            self._code_cache.clear()
+        self._code_cache[code] = (str(user_id), time.time() + 1800)
         return str(user_id), None, None
 
     async def validate_access_code(self, code: str):
@@ -319,108 +323,37 @@ class SupabaseQuota:
         return result, None
 
     async def acquire(self, code: str, action: str, lecture_key: str):
-        """Consume one idempotent daily lecture claim and reserve an active request."""
         code = (code or "").strip()
         lecture_key = (lecture_key or "").strip()
         if not code or not lecture_key:
-            return None, {
-                "status": 403,
-                "message": "A valid access_code and lecture key are required.",
-            }
+            return None, {"status": 403, "message": "A valid access_code and lecture key are required."}
         if action not in ("download", "stream"):
             return None, {"status": 400, "message": "Invalid media action."}
         if action == "download" and not self.downloads_enabled:
-            return None, {
-                "status": 403,
-                "message": "Direct downloads are temporarily disabled. Please use streaming.",
-            }
+            return None, {"status": 403, "message": "Direct downloads are temporarily disabled. Please use streaming."}
 
         user_id, error, status = await self._resolve_code(code)
         if error:
             return None, {"status": status, "message": error}
 
-        limit = (
-            self.max_active_downloads
-            if action == "download"
-            else self.max_active_streams
-        )
-        async with self._active_lock:
-            if (
-                self.max_active_requests_global > 0
-                and self._global_active >= self.max_active_requests_global
-            ):
-                return None, {
-                    "status": 429,
-                    "message": (
-                        "The server is currently serving its maximum number of "
-                        "media requests. Please try again shortly."
-                    ),
-                }
-            active = self._active[user_id][action]
-            if active >= limit:
-                return None, {
-                    "status": 429,
-                    "message": (
-                        f"Too many active {action}s for this user. "
-                        "Please wait for one to finish."
-                    ),
-                }
-            self._global_active += 1
-            self._active[user_id][action] += 1
-
-        result, error = await self._rpc(
-            "claim_media_access",
-            {
-                "p_code": code,
-                "p_action": action,
-                "p_lecture_key": lecture_key,
-            },
-        )
-        if error:
-            # Supabase claim is best-effort only; the authoritative daily
-            # distinct-lecture cap is enforced in MongoDB below.
-            logger.warning("Supabase claim_media_access unavailable: %s", error)
-
-        # Authoritative, tamper-proof daily cap: DISTINCT lectures per user per
-        # rolling 24h, per action. `lecture_key` here is the server-derived
-        # file identity (see media_streamer / telegram route), so swapping the
-        # URL's lecture_key or id cannot bypass it.
         from biisal.utils import daily_quota
 
         limit = self.download_limit if action == "download" else self.stream_limit
-        allowed, reason, _created = await daily_quota.claim(
-            user_id, action, lecture_key, limit
-        )
+        try:
+            allowed, reason, _created = await daily_quota.claim(user_id, action, lecture_key, limit)
+        except Exception as claim_error:
+            logger.warning("daily_quota claim failed, allowing: %s", claim_error)
+            allowed, reason = True, None
+
         if not allowed:
-            await self.release((user_id, action))
             if reason == "daily_limit":
-                return None, {
-                    "status": 429,
-                    "message": (
-                        f"Daily {action} limit reached "
-                        f"({limit} lectures per 24 hours). "
-                        "Please try again later."
-                    ),
-                }
-            return None, {
-                "status": 403,
-                "message": "This link is invalid or has expired.",
-            }
+                return None, {"status": 429, "message": f"Daily {action} limit reached ({limit} lectures per 24 hours). Please try again later."}
+            return None, {"status": 403, "message": "This link is invalid or has expired."}
 
         return (user_id, action), None
 
     async def release(self, lease: Optional[tuple]):
-        if not lease:
-            return
-        user_id, action = lease
-        async with self._active_lock:
-            self._global_active = max(0, self._global_active - 1)
-            counts = self._active.get(user_id)
-            if not counts:
-                return
-            counts[action] = max(0, counts[action] - 1)
-            if counts["download"] == 0 and counts["stream"] == 0:
-                self._active.pop(user_id, None)
+        return
 
 
 async def _parse_json_body(body_text: str):
