@@ -68,10 +68,16 @@ async def claim(user_id: str, action: str, lecture_id: str, limit: int):
       created_new=True only when this call first counted the lecture this
         window (so a failed delivery can refund it via `unclaim`).
     """
+    if not limit or limit <= 0:
+        return True, None, False  # 0/empty limit = unlimited
     col = _collection()
     if col is None or not user_id or not lecture_id:
-        return True, None, False  # fail open if storage is unavailable
-    await _ensure_index(col)
+        return True, None, False
+    try:
+        await _ensure_index(col)
+    except Exception as error:
+        logger.warning("daily_quota index failed: %s", error)
+        return True, None, False
 
     now = time.time()
     window_start = now - _WINDOW_SECONDS
