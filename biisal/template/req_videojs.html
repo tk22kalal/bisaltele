@@ -33,9 +33,47 @@
         .vjs-big-play-button { border-radius: 50% !important; width: 2em !important; height: 2em !important; line-height: 2em !important; left: 50% !important; top: 50% !important; transform: translate(-50%, -50%) !important; }
         .vjs-quality-button .vjs-icon-placeholder::before { content: 'HD'; font-size: 1.5em; line-height: 1.67; }
 
+        /* Resume badge ("Continue from …" / "Start over") */
+        .resume-badge {
+            position: absolute;
+            bottom: 80px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            align-items: center;
+            background: rgba(0,0,0,0.85);
+            border: 1px solid rgba(255,255,255,0.15);
+            border-radius: 999px;
+            padding: 8px 12px;
+            z-index: 10001;
+            font-family: 'Raleway', sans-serif;
+            white-space: nowrap;
+            animation: resumeIn 0.25s ease-out;
+        }
+        .resume-badge .resume-btn {
+            background: rgba(255,255,255,0.12);
+            border: 0;
+            color: #fff;
+            font-family: inherit;
+            font-size: 13px;
+            font-weight: 600;
+            padding: 8px 14px;
+            border-radius: 999px;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.15s;
+        }
+        .resume-badge .resume-btn:hover { background: rgba(255,255,255,0.22); }
+        .resume-badge .resume-btn:active { transform: scale(0.97); }
+        .resume-badge .resume-continue { background: #2c5282; color: #fff; }
+        .resume-badge .resume-continue:hover { background: #1a365d; }
+        @keyframes resumeIn { from { opacity: 0; transform: translate(-50%, 8px); } to { opacity: 1; transform: translate(-50%, 0); } }
+
         @media (max-width: 768px) {
             marquee { font-size: 14px; }
             .tap-indicator { font-size: 48px; }
+            .resume-badge { bottom: 70px; padding: 6px 10px; gap: 8px; }
+            .resume-badge .resume-btn { font-size: 12px; padding: 7px 12px; }
         }
     </style>
 </head>
@@ -75,14 +113,15 @@
         const isVideo = playerElement.tagName.toLowerCase() === 'video';
         let lastTapTime = 0, lastTapSide = null;
 
-        // Custom Quality Button
-        const QualityButton = videojs.extend(videojs.getComponent('MenuButton'), {
-            constructor: function(p, o) {
-                videojs.getComponent('MenuButton').call(this, p, o);
+        // Custom Quality Button — ES6 class extends the MenuButton component.
+        const MenuButton = videojs.getComponent('MenuButton');
+        class QualityButton extends MenuButton {
+            constructor(p, o) {
+                super(p, o);
                 this.addClass('vjs-quality-button');
                 this.controlText('Quality');
-            },
-            createItems: function() {
+            }
+            createItems() {
                 const items = [];
                 const levels = this.player().qualityLevels();
                 if (!levels) return items;
@@ -101,13 +140,16 @@
                 });
                 return items;
             }
-        });
+        }
         videojs.registerComponent('QualityButton', QualityButton);
 
         // Build the ADX VAST tag with a random correlator
         const baseAdTag = "https://pubads.g.doubleclick.net/gampad/live/ads?iu=/23205238319/main_video_adunit&description_url=https%3A%2F%2Fweb.afrahtafreeh.site&tfcd=0&npa=0&sz=640x480&gdfp_req=1&unviewed_position_start=1&output=vast&env=vp&impl=s";
         const correlator = Math.floor(Math.random() * 10000000000);
         const adTagUrl = baseAdTag + "&correlator=" + correlator;
+
+        // Ads are OFF by default. Set to `true` to enable pre-roll ads via IMA.
+        const ENABLE_ADS = false;
 
         const player = videojs('player', {
             playbackRates: [0.5, 1, 1.5, 2, 2.5, 3],
@@ -122,14 +164,12 @@
                     fastQualityChange: true,
                     useBandwidthFromLocalStorage: true
                 }
-            },
-            // IMA plugin configuration for VAST ads
-            plugins: {
-                ima: {
-                    adTagUrl: adTagUrl
-                }
             }
         });
+
+        if (ENABLE_ADS) {
+            try { player.ima({ adTagUrl: adTagUrl }); } catch (e) {}
+        }
 
         // Persist progress by user + lecture, not by the temporary Telegram
         // message ID. This lets a reconnect resume without downloading old
@@ -144,6 +184,72 @@
         let lastSavedPosition = -1;
         let saveInFlight = false;
 
+        function formatResumeTime(seconds) {
+            const total = Math.max(0, Math.floor(Number(seconds) || 0));
+            const h = Math.floor(total / 3600);
+            const m = Math.floor((total % 3600) / 60);
+            const s = total % 60;
+            const pad = (n) => String(n).padStart(2, '0');
+            return h > 0 ? `${h}:${pad(m)}:${pad(s)}` : `${m}:${pad(s)}`;
+        }
+
+        function showResumeBadge(containerEl, position, onContinue) {
+            if (!containerEl || !Number.isFinite(position)) return;
+            const existing = document.getElementById('resumeBadge');
+            if (existing) existing.remove();
+
+            const badge = document.createElement('div');
+            badge.id = 'resumeBadge';
+            badge.className = 'resume-badge';
+
+            const continueBtn = document.createElement('button');
+            continueBtn.type = 'button';
+            continueBtn.className = 'resume-btn resume-continue';
+            continueBtn.textContent = `▶ Continue from ${formatResumeTime(position)}`;
+            continueBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
+                try { onContinue && onContinue(); } catch (_) {}
+            });
+
+            const startOverBtn = document.createElement('button');
+            startOverBtn.type = 'button';
+            startOverBtn.className = 'resume-btn resume-startover';
+            startOverBtn.textContent = 'Start over';
+            startOverBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dismiss();
+                try {
+                    const videoEl = containerEl.querySelector('video');
+                    if (!videoEl) return;
+                    let pl = null;
+                    try { if (window.videojs) pl = videojs.getPlayer(videoEl); } catch (_) {}
+                    if (pl) {
+                        pl.currentTime(0);
+                        const pr = pl.play();
+                        if (pr && pr.catch) pr.catch(() => {});
+                    } else {
+                        videoEl.currentTime = 0;
+                        const pr = videoEl.play();
+                        if (pr && pr.catch) pr.catch(() => {});
+                    }
+                } catch (_) {}
+            });
+
+            badge.appendChild(continueBtn);
+            badge.appendChild(startOverBtn);
+            containerEl.appendChild(badge);
+
+            let hideTimer = setTimeout(dismiss, 15000);
+
+            function dismiss() {
+                clearTimeout(hideTimer);
+                if (badge.parentNode) badge.parentNode.removeChild(badge);
+            }
+        }
+
         async function loadWatchProgress() {
             if (progressLoaded) return;
             progressLoaded = true;
@@ -151,12 +257,15 @@
                 const response = await fetch(progressUrl, { headers: { 'Accept': 'application/json' } });
                 if (!response.ok) return;
                 const saved = await response.json();
-                const duration = Number(player.duration());
+                const duration = Number(player.duration()) || Number(saved.duration_seconds || 0);
                 const position = Number(saved.position_seconds || 0);
-                if (position > 3 && (!duration || position < duration - 3) && player.currentTime() < 1) {
-                    player.currentTime(position);
+                if (position > 5 && (!duration || position < duration - 10) && player.currentTime() < position - 5) {
+                    showResumeBadge(container, position, () => {
+                        player.currentTime(position);
+                        const pr = player.play();
+                        if (pr && pr.catch) pr.catch(() => {});
+                    });
                 }
-                lastSavedPosition = position;
             } catch (error) {
                 console.warn('Could not load watch progress', error);
             }
@@ -167,6 +276,7 @@
             const duration = Number(player.duration());
             if (!Number.isFinite(position) || !Number.isFinite(duration) || position < 1) return;
             if (!force && lastSavedPosition >= 0 && position - lastSavedPosition < 5) return;
+            if (document.getElementById('resumeBadge')) return;
             if (saveInFlight && !force) return;
             lastSavedPosition = Math.max(lastSavedPosition, position);
             saveInFlight = true;
