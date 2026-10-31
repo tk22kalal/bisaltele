@@ -47,7 +47,7 @@
             background: var(--panel);
             border: 1px solid var(--border);
             border-radius: 18px;
-            padding: clamp(13px, 3.4vw, 20px);
+            padding: clamp(11px, 3vw, 16px);
             box-shadow: var(--card-shadow);
         }
 
@@ -64,7 +64,7 @@
             display: grid;
             grid-template-columns: repeat(2, minmax(0, 1fr));
             gap: 8px;
-            margin-bottom: 16px;
+            margin-bottom: 12px;
             padding: 4px;
             background: var(--panel-raised);
             border-radius: 13px;
@@ -83,8 +83,8 @@
             font-weight: 700;
             gap: 8px;
             justify-content: center;
-            min-height: 38px;
-            padding: 7px 10px;
+            min-height: 34px;
+            padding: 6px 10px;
             transition: background .2s, border-color .2s, color .2s, transform .2s;
         }
 
@@ -121,14 +121,14 @@
             font: inherit;
             font-size: 12px;
             font-weight: 700;
-            gap: 8px;
+            gap: 5px;
             justify-content: center;
-            min-height: 82px;
-            padding: 9px 5px;
+            min-height: 64px;
+            padding: 7px 5px;
             transition: border-color .2s, background .2s, color .2s, transform .2s, opacity .2s, box-shadow .2s;
         }
 
-        .player-btn svg { height: 31px; width: 31px; }
+        .player-btn svg { height: 26px; width: 26px; }
         .player-btn:hover:not(:disabled) {
             background: var(--accent-soft);
             border-color: var(--accent);
@@ -249,7 +249,7 @@
         @media (max-width: 350px) {
             body { padding: 8px; }
             .choice-card { padding: 12px 10px; }
-            .player-btn { min-height: 74px; }
+            .player-btn { min-height: 58px; }
             .player-btn { font-size: 11px; }
         }
     </style>
@@ -349,7 +349,7 @@
         //  Set LOCK_EXTERNAL_PLAYERS = false → all players work normally
         //  Direct player is NEVER affected — it always works.
         // ══════════════════════════════════════════════════════════════════
-        const LOCK_EXTERNAL_PLAYERS = true;
+        const LOCK_EXTERNAL_PLAYERS = false;
 
         // This block has no server-templated values in it, so it can never fail
         // to parse — theme detection must always run, even if the templated
@@ -364,6 +364,7 @@
                 document.getElementById('download-mode').style.display = 'block';
                 startDownload();
             } else {
+                prefetchStreamUrl();
                 // Apply the external-player lock as soon as the stream mode is shown.
                 applyExternalPlayerLock();
             }
@@ -468,56 +469,41 @@
             loadingText.textContent = `Preparing ${playerNames[player]}...${retryCount > 0 ? ` (Retry ${retryCount}/5)` : ''}`;
 
             try {
-                const controller = new AbortController();
-                const tid = setTimeout(() => controller.abort(), 45000);
-                const generateParams = new URLSearchParams({
-                    player: playerType,
-                    access_code: accessCode
-                });
-                const response = await fetch(`/api/generate/{{token}}?${generateParams.toString()}`, {
-                    signal: controller.signal,
-                    headers: { 'Accept': 'application/json' }
-                });
-                clearTimeout(tid);
-
-                const ct = response.headers.get('content-type') || '';
-                if (!ct.includes('application/json')) throw new Error('Server returned non-JSON response. Please try again.');
-
-                const data = await response.json();
-                if (!data.success && (response.status === 429 || response.status >= 500)) {
-                    const e = new Error(data.error || 'Server busy');
-                    e.name = 'RetryableError';
-                    throw e;
-                }
+                const data = await getStreamData(playerType);
                 if (data.success) {
                     if (player === 'direct') {
-                        loading.style.display = 'none';
-                        statusMsg.className = 'status-message success';
-                        statusMsg.innerHTML = 'Opening the built-in player... <a id="directFallbackLink" style="color:inherit;text-decoration:underline">Tap here if it does not open</a>';
-                        document.getElementById('directFallbackLink').href = data.stream_url;
-                        statusMsg.style.display = 'block';
-                        buttons.forEach(b => b.disabled = false);
-                        applyExternalPlayerLock();
-                        setTimeout(() => window.location.assign(data.stream_url), 350);
+                        loadingText.textContent = 'Opening player...';
+                        window.location.assign(data.stream_url);
+                        setTimeout(() => {
+                            loading.style.display = 'none';
+                            statusMsg.className = 'status-message success';
+                            statusMsg.innerHTML = 'Opening the built-in player... <a id="directFallbackLink" style="color:inherit;text-decoration:underline">Tap here if it does not open</a>';
+                            document.getElementById('directFallbackLink').href = data.stream_url;
+                            statusMsg.style.display = 'block';
+                            buttons.forEach(b => b.disabled = false);
+                        }, 4000);
                     } else if (isAndroid) {
                         // Android: MX Player / VLC via intent://
                         window.location.href = buildIntentUrl(data.stream_url, player === 'mx'
                             ? 'com.mxtech.videoplayer.ad'
                             : 'org.videolan.vlc');
+                        resetAfterExternal();
                     } else if (player === 'vlc') {
                         // VLC for iOS: vlc://<full stream url, own scheme included>.
                         // VLC may show a one-tap "Play/Download" confirmation before it starts.
                         window.location.href = 'vlc://' + data.stream_url;
+                        resetAfterExternal();
                     } else if (player === 'infuse') {
                         // Infuse's documented x-callback-url API (Firecore): starts playback directly.
                         window.location.href = `infuse://x-callback-url/play?url=${encodeURIComponent(data.stream_url)}`;
+                        resetAfterExternal();
                     }
                 } else {
                     throw new Error(data.error || 'Failed to generate stream link');
                 }
             } catch (error) {
                 const maxRetries = 5;
-                const delay = Math.min(2000 * Math.pow(1.5, retryCount), 10000);
+                const delay = Math.min(1500 * Math.pow(1.5, retryCount), 3000);
                 const retryable = error.name === 'AbortError' || error.name === 'RetryableError' || error.name === 'TypeError' || error.message.includes('JSON');
                 if (retryable && retryCount < maxRetries) {
                     statusMsg.className = 'status-message warning';
@@ -533,6 +519,47 @@
                 applyExternalPlayerLock();
                 loading.style.display = 'none';
             }
+        }
+
+        let streamPromise = null;
+        async function fetchStreamData() {
+            const controller = new AbortController();
+            const tid = setTimeout(() => controller.abort(), 25000);
+            try {
+                const params = new URLSearchParams({ player: 'videojs', access_code: accessCode });
+                const response = await fetch(`/api/generate/{{token}}?${params.toString()}`, { signal: controller.signal, headers: { 'Accept': 'application/json' } });
+                const ct = response.headers.get('content-type') || '';
+                if (!ct.includes('application/json')) throw new Error('Server returned non-JSON response. Please try again.');
+                const data = await response.json();
+                if (!data.success && (response.status === 429 || response.status >= 500)) {
+                    const e = new Error(data.error || 'Server busy');
+                    e.name = 'RetryableError';
+                    throw e;
+                }
+                if (!data.success) throw new Error(data.error || 'Failed to generate stream link');
+                return data;
+            } finally {
+                clearTimeout(tid);
+            }
+        }
+        function prefetchStreamUrl() {
+            if (!streamPromise) {
+                streamPromise = fetchStreamData();
+                streamPromise.catch(() => { streamPromise = null; });
+            }
+            return streamPromise;
+        }
+        async function getStreamData(playerType) {
+            const data = await prefetchStreamUrl();
+            const url = new URL(data.stream_url, window.location.href);
+            url.searchParams.set('player', playerType);
+            return { ...data, stream_url: url.toString() };
+        }
+        function resetAfterExternal() {
+            setTimeout(() => {
+                document.querySelectorAll('.player-btn, .platform-tab').forEach(b => b.disabled = false);
+                document.querySelector('.loading').style.display = 'none';
+            }, 1500);
         }
 
         function buildIntentUrl(url, packageName) {
