@@ -25,7 +25,7 @@ from biisal.utils.file_properties import get_name, get_hash, get_media_from_mess
 from biisal.utils.human_readable import humanbytes
 from biisal.vars import Var
 from biisal.utils.supabase_quota import supabase_quota
-from biisal.utils import telegram_delivery, autodelete, daily_quota
+from biisal.utils import telegram_delivery, autodelete, daily_quota, watch_progress
 
 stream_log = logging.getLogger("stream.routes")
 
@@ -180,11 +180,13 @@ async def root_route_handler(_):
 async def get_progress_handler(request: web.Request):
     access_code = request.rel_url.query.get("access_code", "").strip()
     lecture_key = request.rel_url.query.get("lecture_key", "").strip()
-    progress, error = await supabase_quota.get_watch_progress(
-        access_code, lecture_key
-    )
-    if error:
-        return quota_error_response(error)
+    if not access_code or not lecture_key:
+        return web.json_response({"success": False, "error": "access_code and lecture_key are required."}, status=400)
+    progress = await watch_progress.get(access_code, lecture_key)
+    if progress is None:
+        progress, error = await supabase_quota.get_watch_progress(access_code, lecture_key)
+        if error or not progress:
+            progress = {}
     return web.json_response(
         {
             "success": True,
@@ -212,14 +214,13 @@ async def save_progress_handler(request: web.Request):
             status=400,
         )
 
-    progress, error = await supabase_quota.save_watch_progress(
-        payload.get("access_code", ""),
-        payload.get("lecture_key", ""),
-        position_seconds,
-        duration_seconds,
-    )
-    if error:
-        return quota_error_response(error)
+    access_code = str(payload.get("access_code") or "").strip()
+    lecture_key = str(payload.get("lecture_key") or "").strip()
+    if not access_code or not lecture_key:
+        return web.json_response({"success": False, "error": "access_code and lecture_key are required."}, status=400)
+    progress = await watch_progress.save(access_code, lecture_key, position_seconds, duration_seconds)
+    if progress is None:
+        return web.json_response({"success": False, "error": "Could not save progress."}, status=503)
     return web.json_response(
         {
             "success": True,
